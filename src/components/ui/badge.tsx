@@ -12,7 +12,6 @@ const badgeVariants = cva(
         accent:     "border-transparent bg-accent/15 text-accent",
         outline:    "border-border text-muted-foreground hover:border-primary hover:text-primary cursor-pointer",
         success:    "border-transparent bg-primary/10 text-primary font-bold",
-        premium:    "border-transparent bg-primary text-primary-foreground",
       },
     },
     defaultVariants: { variant: "default" },
