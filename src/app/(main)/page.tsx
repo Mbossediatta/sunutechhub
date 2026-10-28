@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { RegisterForm } from "@/components/home/register-form";
+import { HomeCommunity } from "@/components/home/home-community";
 
 export default function HomePage() {
   return (
@@ -57,7 +58,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Community activity is shown on its API-backed destination pages. */}
+      <HomeCommunity />
 
       {/* ── FEATURES ─────────────────────────────────────────────── */}
       <section className="py-20">

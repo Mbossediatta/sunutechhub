@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Code2,
   Eye,
   EyeOff,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
   Users,
-  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,17 +143,19 @@ export default function InscriptionPage() {
 
         <div className="relative z-10 flex flex-col justify-between h-full p-10 xl:p-14">
           <Link href="/" className="flex items-center gap-2.5 w-fit">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white">
-              <Code2 className="h-4 w-4" />
-            </span>
-            <span className="font-bricolage font-bold text-white text-lg">
-              Sunu Tech Hub
-            </span>
+            <Image
+              src="/logo-sunutech.png"
+              alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+              width={220}
+              height={55}
+              priority
+              className="h-12 w-auto rounded-lg bg-white object-contain"
+            />
           </Link>
 
           <div>
             <h2 className="font-bricolage text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
-              Rejoins 2 400+
+              Rejoins la communauté
               <br />
               développeurs sénégalais.
             </h2>
@@ -163,53 +164,15 @@ export default function InscriptionPage() {
               ensemble dans la tech.
             </p>
 
-            {/* Témoignages */}
-            <div className="flex flex-col gap-4">
-              {[
-                {
-                  name: "Moussa Diallo",
-                  city: "Dakar",
-                  text: "J'ai trouvé mon stage grâce à Sunu Tech Hub en 2 semaines !",
-                },
-                {
-                  name: "Fatou Sow",
-                  city: "Saint-Louis",
-                  text: "Les cours en wolof m'ont vraiment aidé à progresser vite.",
-                },
-              ].map((t) => (
-                <div
-                  key={t.name}
-                  className="bg-white/6 border border-white/8 rounded-2xl p-4"
-                >
-                  <p className="text-sm text-slate-300 leading-relaxed mb-3">
-                    &ldquo;{t.text}&rdquo;
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
-                      {t.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-white">
-                        {t.name}
-                      </p>
-                      <p className="text-[10px] text-slate-500">{t.city}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="max-w-sm text-slate-400">
+              Crée ton compte pour suivre des cours, poser tes questions et
+              partager tes réalisations avec d’autres membres.
+            </p>
           </div>
 
           <div className="flex items-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" />2 400+ membres
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Trophy className="h-3.5 w-3.5" />
-              100% gratuit
+              <Users className="h-3.5 w-3.5" />Une communauté ouverte
             </span>
           </div>
         </div>
@@ -220,13 +183,15 @@ export default function InscriptionPage() {
         <div className="w-full max-w-[400px]">
           {/* Logo mobile */}
           <div className="flex lg:hidden justify-center mb-6">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
-                <Code2 className="h-4 w-4" />
-              </span>
-              <span className="font-bricolage font-bold text-lg">
-                Sunu Tech Hub
-              </span>
+            <Link href="/">
+              <Image
+                src="/logo-sunutech.png"
+                alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+                width={220}
+                height={55}
+                priority
+                className="h-12 w-auto rounded-lg bg-white object-contain"
+              />
             </Link>
           </div>
 

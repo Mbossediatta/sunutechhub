@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Code2,
   Eye,
   EyeOff,
   ArrowRight,
@@ -126,12 +126,14 @@ export default function ConnexionPage() {
         <div className="relative z-10 flex flex-col justify-between h-full p-10 xl:p-14">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 w-fit">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white">
-              <Code2 className="h-4 w-4" />
-            </span>
-            <span className="font-bricolage font-bold text-white text-lg">
-              Sunu Tech Hub
-            </span>
+            <Image
+              src="/logo-sunutech.png"
+              alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+              width={220}
+              height={55}
+              priority
+              className="h-12 w-auto rounded-lg bg-white object-contain"
+            />
           </Link>
 
           {/* Contenu central */}
@@ -148,9 +150,9 @@ export default function ConnexionPage() {
 
             <div className="flex flex-col gap-4">
               {[
-                { icon: MessageSquare, label: "1 200+ questions résolues" },
-                { icon: BookOpen, label: "48 cours gratuits" },
-                { icon: Rocket, label: "320+ projets partagés" },
+                { icon: MessageSquare, label: "Échanger autour de questions tech" },
+                { icon: BookOpen, label: "Apprendre avec les cours" },
+                { icon: Rocket, label: "Partager des projets réalisés" },
               ].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-white/8 flex items-center justify-center shrink-0">
@@ -176,13 +178,15 @@ export default function ConnexionPage() {
         <div className="w-full max-w-[400px]">
           {/* Logo mobile */}
           <div className="flex lg:hidden justify-center mb-8">
-            <Link href="/" className="flex items-center gap-2 group">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
-                <Code2 className="h-4 w-4" />
-              </span>
-              <span className="font-bricolage font-bold text-lg">
-                Sunu Tech Hub
-              </span>
+            <Link href="/" className="group">
+              <Image
+                src="/logo-sunutech.png"
+                alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+                width={220}
+                height={55}
+                priority
+                className="h-12 w-auto rounded-lg bg-white object-contain"
+              />
             </Link>
           </div>
 

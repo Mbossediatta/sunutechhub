@@ -13,6 +13,7 @@ type Course = {
   level: string;
   duration: string;
   language: string;
+  coverImageUrl: string | null;
   lessons: number;
   subjects: string[];
   isFree: boolean;
@@ -85,6 +86,14 @@ export default function CoursPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((course) => (
             <article key={course.id} className="flex flex-col rounded-2xl border bg-card p-5 transition-colors hover:border-primary/40">
+              {course.coverImageUrl && (
+                <img
+                  src={course.coverImageUrl}
+                  alt=""
+                  loading="lazy"
+                  className="mb-4 aspect-video w-full rounded-xl object-cover"
+                />
+              )}
               <div className="mb-4 flex items-start justify-between gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></span>
                 <Badge variant={course.isFree ? "secondary" : "outline"}>{course.isFree ? "Gratuit" : "Payant"}</Badge>

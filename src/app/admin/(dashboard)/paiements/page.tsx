@@ -24,6 +24,17 @@ type Payment = {
   course: { title: string } | null;
 };
 
+type PayTechStatus = {
+  ready: boolean;
+  environment: "test" | "prod" | "invalid";
+  apiKeyConfigured: boolean;
+  apiSecretConfigured: boolean;
+  callbackConfigured: boolean;
+  callbackUsesHttps: boolean;
+  frontendConfigured: boolean;
+  issues: string[];
+};
+
 const money = new Intl.NumberFormat("fr-FR");
 const objectLabels: Record<string, string> = {
   INSCRIPTION_BASE: "Inscription — base",
@@ -61,8 +72,11 @@ function csvCell(value: unknown) {
 
 export default function AdminPaiementsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [payTechStatus, setPayTechStatus] = useState<PayTechStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusError, setStatusError] = useState("");
   const [status, setStatus] = useState("ALL");
   const [search, setSearch] = useState("");
 
@@ -82,9 +96,50 @@ export default function AdminPaiementsPage() {
     }
   }, []);
 
+  const refreshPayTechStatus = useCallback(async () => {
+    setStatusLoading(true);
+    setStatusError("");
+    try {
+      const response = await fetch("/api/admin/payments/status", {
+        cache: "no-store",
+      });
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de vérifier la configuration PayTech.";
+        throw new Error(message);
+      }
+      if (
+        !result ||
+        typeof result !== "object" ||
+        !("ready" in result) ||
+        typeof result.ready !== "boolean" ||
+        !("issues" in result) ||
+        !Array.isArray(result.issues)
+      ) {
+        throw new Error("La réponse de configuration PayTech est invalide.");
+      }
+      setPayTechStatus(result as PayTechStatus);
+    } catch (statusLoadError) {
+      setStatusError(
+        statusLoadError instanceof Error
+          ? statusLoadError.message
+          : "Impossible de vérifier la configuration PayTech.",
+      );
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void refreshPayTechStatus();
+  }, [refresh, refreshPayTechStatus]);
 
   const filtered = useMemo(
     () =>
@@ -142,6 +197,67 @@ export default function AdminPaiementsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <section className="rounded-2xl border bg-card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bricolage text-lg font-bold">
+              Configuration PayTech
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Diagnostic sans afficher les clés ni les secrets.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void refreshPayTechStatus()}
+            disabled={statusLoading}
+          >
+            {statusLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}
+            Vérifier
+          </Button>
+        </div>
+        {statusError ? (
+          <p role="alert" className="mt-3 text-sm text-accent">
+            {statusError}
+          </p>
+        ) : statusLoading && !payTechStatus ? (
+          <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+            Vérification de la configuration…
+          </p>
+        ) : payTechStatus ? (
+          <div className="mt-4">
+            <p
+              className={`text-sm font-semibold ${payTechStatus.ready ? "text-primary" : "text-accent"}`}
+            >
+              {payTechStatus.ready
+                ? "Configuration présente — mode "
+                : "Configuration à corriger — mode "}
+              {payTechStatus.environment === "test"
+                ? "test"
+                : payTechStatus.environment === "prod"
+                  ? "production"
+                  : "invalide"}
+            </p>
+            {payTechStatus.issues.length > 0 && (
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                {payTechStatus.issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            )}
+            {payTechStatus.ready && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Ce diagnostic vérifie les paramètres, pas la réception effective
+                du webhook. L’adresse de notification doit être accessible
+                publiquement en HTTPS.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </section>
       {error && (
         <p role="alert" className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">
           ! {error}

@@ -1,21 +1,11 @@
 import Link from "next/link";
-import { Code2, Users, BookOpen, Rocket, Heart } from "lucide-react";
+import Image from "next/image";
+import { Users, BookOpen, Rocket, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "À propos" };
-
-const team = [
-  { name: "Équipe Sunu Tech Hub", role: "Fondateurs", city: "Dakar, Sénégal", initials: "ST" },
-];
-
-const milestones = [
-  { date: "Jan. 2026", event: "Idée fondatrice — combler le manque de ressources tech en wolof et français" },
-  { date: "Avr. 2026", event: "Premiers cours publiés, 50 membres fondateurs" },
-  { date: "Sep. 2026", event: "Lancement public — 500 membres en 30 jours" },
-  { date: "Oct. 2026", event: "2 400+ membres actifs, 1 200+ questions résolues" },
-];
 
 export default function AProposPage() {
   return (
@@ -23,9 +13,13 @@ export default function AProposPage() {
 
       {/* Hero */}
       <div className="text-center mb-14">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto mb-5">
-          <Code2 className="h-8 w-8 text-white" />
-        </div>
+        <Image
+          src="/logo-sunutech.png"
+          alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+          width={330}
+          height={82}
+          className="mx-auto mb-5 h-auto w-64 sm:w-80"
+        />
         <h1 className="font-bricolage text-4xl font-extrabold mb-4">À propos de Sunu Tech Hub</h1>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
           <strong className="text-foreground">Sunu</strong> signifie <em>notre</em> en wolof. 
@@ -53,38 +47,13 @@ export default function AProposPage() {
         ))}
       </div>
 
-      {/* Histoire */}
-      <div className="mb-14">
-        <h2 className="font-bricolage text-2xl font-bold mb-6">Notre histoire</h2>
-        <div className="flex flex-col gap-4">
-          {milestones.map((m, i) => (
-            <div key={i} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="h-3 w-3 rounded-full bg-primary mt-1.5 shrink-0" />
-                {i < milestones.length - 1 && <div className="w-0.5 flex-1 bg-border mt-1" />}
-              </div>
-              <div className="pb-5">
-                <span className="text-xs font-bold text-primary uppercase tracking-wide">{m.date}</span>
-                <p className="text-sm text-foreground mt-0.5">{m.event}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-14">
-        {[
-          { value: "2 400+", label: "Membres" },
-          { value: "1 200+", label: "Questions résolues" },
-          { value: "48",     label: "Cours gratuits" },
-          { value: "320+",   label: "Projets partagés" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border bg-card p-5 text-center">
-            <div className="font-bricolage text-2xl font-extrabold text-primary mb-0.5">{s.value}</div>
-            <div className="text-xs text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
+      <div className="mb-14 rounded-2xl border bg-card p-6 sm:p-8">
+        <h2 className="mb-3 font-bricolage text-2xl font-bold">Un espace pour apprendre et construire</h2>
+        <p className="leading-relaxed text-muted-foreground">
+          Sunu Tech Hub rassemble des ressources de formation, des échanges entre membres
+          et des projets réalisés autour des cours. Les contenus publiés et les activités
+          évoluent avec la communauté.
+        </p>
       </div>
 
       {/* CTA */}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Code2 } from "lucide-react";
+import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 
 const links = {
@@ -29,10 +29,13 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-x-8 gap-y-9 sm:grid-cols-4 sm:gap-10">
           <div className="col-span-2 sm:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Code2 className="h-4 w-4" />
-              </span>
-              <span className="font-bricolage font-bold">Sunu Tech Hub</span>
+              <Image
+                src="/logo-sunutech.png"
+                alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+                width={180}
+                height={45}
+                className="h-11 w-auto rounded-lg bg-white object-contain"
+              />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Apprendre, partager, construire ensemble. La communauté informatique du Sénégal.

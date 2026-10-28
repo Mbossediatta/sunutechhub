@@ -1,23 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 const SKILL_SUGGESTIONS = ["JavaScript", "React", "Node.js", "Python", "Flutter", "PostgreSQL", "Vue.js", "TypeScript", "PHP", "Java", "Linux", "DevOps"];
 
 export default function ModifierProfilPage() {
-  const [name,    setName]   = useState("Moussa Diallo");
-  const [city,    setCity]   = useState("Dakar, Sénégal");
-  const [bio,     setBio]    = useState("Développeur web passionné, étudiant à l'ESP.");
-  const [email,   setEmail]  = useState("moussa@exemple.com");
-  const [skills,  setSkills] = useState(["JavaScript", "React", "Node.js"]);
+  const [name,    setName]   = useState("");
+  const [city,    setCity]   = useState("");
+  const [bio,     setBio]    = useState("");
+  const [email,   setEmail]  = useState("");
+  const [skills,  setSkills] = useState<string[]>([]);
   const [custom,  setCustom] = useState("");
   const [loading, setLoad]   = useState(false);
   const [saved,   setSaved]  = useState(false);
+  const [error, setError] = useState("");
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (response) => {
+        const result: unknown = await response.json().catch(() => null);
+        if (!response.ok || !result || typeof result !== "object") {
+          throw new Error("Impossible de charger votre profil.");
+        }
+        const profile = result as { name: string; email: string; city: string | null; bio: string | null; interests: string[] };
+        setName(profile.name);
+        setEmail(profile.email);
+        setCity(profile.city ?? "");
+        setBio(profile.bio ?? "");
+        setSkills(profile.interests);
+      })
+      .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Impossible de charger votre profil."))
+      .finally(() => setProfileLoading(false));
+  }, []);
 
   const addSkill = (s: string) => {
     if (!skills.includes(s)) setSkills((p) => [...p, s]);
@@ -33,9 +52,27 @@ export default function ModifierProfilPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoad(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoad(false); setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, city, bio, interests: skills }),
+      });
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = result && typeof result === "object" && "message" in result && typeof result.message === "string"
+          ? result.message
+          : "Impossible d’enregistrer votre profil.";
+        throw new Error(message);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Impossible d’enregistrer votre profil.");
+    } finally {
+      setLoad(false);
+    }
   };
 
   return (
@@ -50,19 +87,18 @@ export default function ModifierProfilPage() {
         <h1 className="font-bricolage text-3xl font-bold">Modifier mon profil</h1>
       </div>
 
+      {error && <p role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+      {profileLoading && <p className="mb-5 text-sm text-muted-foreground">Chargement du profil…</p>}
+
       <form onSubmit={handleSave} className="flex flex-col gap-6">
 
-        {/* Avatar */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl border bg-card">
+        <div className="flex items-center gap-4 rounded-2xl border bg-card p-5">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bricolage text-xl font-bold shrink-0">
             {name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
           </div>
           <div>
-            <p className="font-semibold text-sm mb-1">Photo de profil</p>
-            <p className="text-xs text-muted-foreground mb-2">JPG ou PNG, max 2 Mo</p>
-            <Button type="button" size="sm" variant="secondary" className="rounded-xl text-xs h-8">
-              Changer la photo
-            </Button>
+            <p className="font-semibold text-sm">{name || "Votre profil"}</p>
+            <p className="text-xs text-muted-foreground">Avatar généré à partir de votre nom.</p>
           </div>
         </div>
 
@@ -81,7 +117,7 @@ export default function ModifierProfilPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-semibold">Adresse e-mail</label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-xl h-11" />
+            <Input type="email" value={email} readOnly className="rounded-xl h-11" />
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
@@ -144,24 +180,9 @@ export default function ModifierProfilPage() {
           </div>
         </div>
 
-        {/* Liens */}
-        <div className="rounded-2xl border bg-card p-6 flex flex-col gap-4">
-          <h2 className="font-semibold text-base">Liens</h2>
-          {[
-            { label: "GitHub", placeholder: "https://github.com/ton-compte" },
-            { label: "LinkedIn", placeholder: "https://linkedin.com/in/ton-profil" },
-            { label: "Portfolio", placeholder: "https://ton-portfolio.com" },
-          ].map((l) => (
-            <div key={l.label} className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold">{l.label}</label>
-              <Input placeholder={l.placeholder} className="rounded-xl h-11" />
-            </div>
-          ))}
-        </div>
-
         {/* Bouton sauvegarder */}
         <div className="flex items-center gap-3 pt-2 border-t">
-          <Button type="submit" className="rounded-xl gap-2 shadow-md shadow-primary/20" disabled={loading}>
+          <Button type="submit" className="rounded-xl gap-2 shadow-md shadow-primary/20" disabled={loading || profileLoading}>
             {loading
               ? <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Sauvegarde…</>
               : saved

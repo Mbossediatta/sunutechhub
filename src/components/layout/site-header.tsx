@@ -2,10 +2,11 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, Menu, X, Code2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Sun, Moon, Search, Menu, X, LogOut, UserRound } from "lucide-react";
+import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +39,67 @@ function ThemeToggle() {
 // Composant interne qui utilise usePathname
 function HeaderNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState<{ id: string; name: string; role: "MEMBER" | "ADMIN" } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState("");
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (response.status === 401) {
+        setUser(null);
+        setAuthError("");
+      } else if (!response.ok) {
+        setAuthError("La session n’a pas pu être vérifiée.");
+      } else {
+        const result: unknown = await response.json();
+        if (
+          !result ||
+          typeof result !== "object" ||
+          !("id" in result) ||
+          typeof result.id !== "string" ||
+          !("name" in result) ||
+          typeof result.name !== "string" ||
+          !("role" in result) ||
+          (result.role !== "MEMBER" && result.role !== "ADMIN")
+        ) {
+          throw new Error("Réponse de session invalide.");
+        }
+        setUser({ id: result.id, name: result.name, role: result.role });
+        setAuthError("");
+      }
+    } catch {
+      setAuthError("La session n’a pas pu être vérifiée.");
+    } finally {
+      setAuthChecked(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [pathname, refreshSession]);
+
+  useEffect(() => {
+    const handleAuthChange = () => void refreshSession();
+    window.addEventListener("sth:auth-changed", handleAuthChange);
+    return () => window.removeEventListener("sth:auth-changed", handleAuthChange);
+  }, [refreshSession]);
+
+  const signOut = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("La déconnexion a échoué.");
+      setUser(null);
+      setMenuOpen(false);
+      router.replace("/");
+      router.refresh();
+    } catch {
+      setAuthError("Impossible de fermer la session. Réessaie.");
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -58,12 +118,14 @@ function HeaderNav() {
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all group-hover:scale-105 group-hover:shadow-md group-hover:shadow-primary/30">
-            <Code2 className="h-4 w-4" />
-          </span>
-          <span className="font-bricolage text-lg font-bold tracking-tight hidden sm:block">
-            Sunu Tech Hub
-          </span>
+          <Image
+            src="/logo-sunutech.png"
+            alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+            width={200}
+            height={50}
+            priority
+            className="h-10 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02]"
+          />
         </Link>
 
         {/* Nav desktop */}
@@ -93,12 +155,30 @@ function HeaderNav() {
           </Button>
           <ThemeToggle />
           <div className="w-px h-5 bg-border mx-1" />
-          <Button variant="ghost" size="sm" className="rounded-xl" asChild>
-            <Link href="/connexion">Connexion</Link>
-          </Button>
-          <Button size="sm" className="rounded-xl shadow-sm shadow-primary/20" asChild>
-            <Link href="/inscription">S&apos;inscrire</Link>
-          </Button>
+          {authChecked && !authError && (user ? (
+            <>
+              {user.role === "ADMIN" && (
+                <Button variant="ghost" size="sm" className="rounded-xl" asChild>
+                  <Link href="/admin">Administration</Link>
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" className="rounded-xl" asChild>
+                <Link href="/profil"><UserRound className="mr-1.5 h-4 w-4" />{user.name}</Link>
+              </Button>
+              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => void signOut()} aria-label="Se déconnecter">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          ) : authChecked && !authError ? (
+            <>
+              <Button variant="ghost" size="sm" className="rounded-xl" asChild>
+                <Link href="/connexion">Connexion</Link>
+              </Button>
+              <Button size="sm" className="rounded-xl shadow-sm shadow-primary/20" asChild>
+                <Link href="/inscription">S&apos;inscrire</Link>
+              </Button>
+            </>
+          ) : null)}
         </div>
 
         {/* Actions mobile */}
@@ -126,12 +206,29 @@ function HeaderNav() {
             </Link>
           ))}
           <div className="border-t my-2" />
-          <Button className="w-full rounded-xl" asChild>
-            <Link href="/inscription">S&apos;inscrire gratuitement</Link>
-          </Button>
-          <Button variant="secondary" className="w-full rounded-xl" asChild>
-            <Link href="/connexion">Connexion</Link>
-          </Button>
+          {authChecked && !authError && (user ? (
+            <>
+              <Link href="/profil" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">
+                <UserRound className="mr-2 inline h-4 w-4" />Mon profil — {user.name}
+              </Link>
+              {user.role === "ADMIN" && (
+                <Link href="/admin" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">Administration</Link>
+              )}
+              <Button variant="secondary" className="w-full rounded-xl" onClick={() => void signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />Se déconnecter
+              </Button>
+            </>
+          ) : authChecked && !authError ? (
+            <>
+              <Button className="w-full rounded-xl" asChild>
+                <Link href="/inscription">S&apos;inscrire gratuitement</Link>
+              </Button>
+              <Button variant="secondary" className="w-full rounded-xl" asChild>
+                <Link href="/connexion">Connexion</Link>
+              </Button>
+            </>
+          ) : null)}
+          {authError && <p role="status" className="px-4 text-xs text-muted-foreground">{authError}</p>}
         </div>
       )}
     </header>

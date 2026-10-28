@@ -1,14 +1,19 @@
 import Link from "next/link";
-import { Code2, ArrowLeft, Search } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-20 text-center">
       {/* Logo */}
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-6">
-        <Code2 className="h-7 w-7 text-primary" />
-      </div>
+      <Image
+        src="/icon.png"
+        alt="Sunu Tech Hub"
+        width={64}
+        height={64}
+        className="mb-6 rounded-2xl"
+      />
 
       {/* Erreur */}
       <span className="font-bricolage text-7xl font-extrabold text-primary/20 mb-4 leading-none">

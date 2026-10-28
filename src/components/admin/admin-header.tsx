@@ -1,8 +1,9 @@
 "use client";
 
 import { Suspense } from "react";
-import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { Bell, LoaderCircle, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const titles: Record<string, string> = {
@@ -23,23 +24,78 @@ const titles: Record<string, string> = {
 
 function AdminHeaderInner() {
   const pathname = usePathname();
+  const router = useRouter();
   const title    = titles[pathname] ?? "Admin";
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const logout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error("La déconnexion n’a pas abouti. Réessaie.");
+      }
+      router.replace("/admin/login");
+      router.refresh();
+    } catch (error) {
+      setLogoutError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de fermer la session. Réessaie.",
+      );
+      setLoggingOut(false);
+    }
+  };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0">
+    <header className="relative flex h-16 shrink-0 items-center justify-between border-b bg-card px-4 sm:px-6">
       <h1 className="font-bricolage text-xl font-bold">{title}</h1>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="rounded-xl relative" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative rounded-xl"
+          aria-label="Notifications"
+        >
           <Bell className="h-4 w-4" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
         </Button>
-        <Button variant="ghost" size="icon" className="rounded-xl" aria-label="Rechercher">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-xl"
+          aria-label="Rechercher"
+        >
           <Search className="h-4 w-4" />
         </Button>
-        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold ml-2">
-          AD
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-1 rounded-xl"
+          onClick={() => void logout()}
+          disabled={loggingOut}
+        >
+          {loggingOut ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {loggingOut ? "Déconnexion…" : "Se déconnecter"}
+          </span>
+        </Button>
       </div>
+      {logoutError && (
+        <p
+          role="alert"
+          className="absolute right-4 top-full z-10 mt-2 rounded-xl border border-accent/20 bg-card px-3 py-2 text-sm text-accent shadow-md sm:right-6"
+        >
+          {logoutError}
+        </p>
+      )}
     </header>
   );
 }

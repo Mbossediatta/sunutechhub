@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Code2, Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -102,12 +103,14 @@ export default function AdminLoginPage() {
 
           {/* Logo */}
           <div className="flex flex-col items-center mb-10">
-            <div className="flex items-center gap-2.5 mb-1">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
-                <Code2 className="h-5 w-5" />
-              </span>
-              <span className="font-bricolage text-2xl font-bold">Sunu Tech Hub</span>
-            </div>
+            <Image
+              src="/logo-sunutech.png"
+              alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+              width={240}
+              height={60}
+              priority
+              className="mb-1 h-14 w-auto max-w-full rounded-xl bg-white object-contain"
+            />
             <span className="text-xs text-muted-foreground font-semibold uppercase tracking-widest mt-1">
               Administration
             </span>

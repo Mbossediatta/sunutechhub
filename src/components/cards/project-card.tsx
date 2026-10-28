@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, ExternalLink } from "lucide-react";
+import { ExternalLink, Rocket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -7,25 +7,21 @@ interface ProjectCardProps {
   id: string;
   title: string;
   description: string;
-  author: { name: string; city: string };
+  author: { name: string; city: string | null };
+  courseTitle: string;
   technologies: string[];
-  feedback: number;
 }
-
-const emojis = ["🚀", "💡", "🛠️", "⚡", "🌍"];
 
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
-export function ProjectCard({ id, title, description, author, technologies, feedback }: ProjectCardProps) {
-  const emoji = emojis[parseInt(id) % emojis.length];
-
+export function ProjectCard({ id, title, description, author, courseTitle, technologies }: ProjectCardProps) {
   return (
     <Card className="group flex flex-col overflow-hidden border hover:border-primary/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/8 transition-all duration-200">
       {/* Thumbnail */}
       <div className="h-36 bg-gradient-to-br from-accent/10 via-primary/5 to-background flex items-center justify-center relative overflow-hidden">
-        <span className="text-5xl opacity-60 group-hover:scale-110 transition-transform duration-300">{emoji}</span>
+        <Rocket className="h-12 w-12 text-primary/50 transition-transform duration-300 group-hover:scale-110" />
         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
       </div>
 
@@ -37,6 +33,7 @@ export function ProjectCard({ id, title, description, author, technologies, feed
         </Link>
 
         <p className="text-xs text-muted-foreground line-clamp-2 flex-1 leading-relaxed">{description}</p>
+        <p className="text-xs font-medium text-primary">{courseTitle}</p>
 
         <div className="flex flex-wrap gap-1">
           {technologies.map((t) => (
@@ -51,14 +48,9 @@ export function ProjectCard({ id, title, description, author, technologies, feed
             </span>
             <span className="text-xs text-muted-foreground truncate max-w-[110px]">{author.name}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MessageSquare className="h-3 w-3" />{feedback}
-            </span>
-            <Link href={`/projets/${id}`} className="text-muted-foreground hover:text-primary transition-colors">
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </div>
+          <Link href={`/projets/${id}`} aria-label={`Voir le projet ${title}`} className="text-muted-foreground hover:text-primary transition-colors">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </CardContent>
     </Card>

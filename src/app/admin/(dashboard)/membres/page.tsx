@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Search, Users } from "lucide-react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 
 type Member = {
@@ -10,6 +11,7 @@ type Member = {
   email: string;
   role: "ADMIN" | "MEMBER";
   createdAt: string;
+  registrations: { id: string; course: { id: string; title: string } }[];
   _count: { registrations: number; payments: number; projects: number };
 };
 
@@ -144,7 +146,7 @@ export default function AdminMembresPage() {
                         {initials(member.name)}
                       </span>
                       <span>
-                        <span className="block font-medium">{member.name}</span>
+                        <Link href={`/profil/${member.id}`} className="block font-medium hover:text-primary">{member.name}</Link>
                         <span className="block text-xs text-muted-foreground">{member.email}</span>
                       </span>
                     </div>
@@ -154,7 +156,14 @@ export default function AdminMembresPage() {
                       {member.role === "ADMIN" ? "Administration" : "Membre"}
                     </span>
                   </td>
-                  <td className="p-3">{member._count.registrations}</td>
+                  <td className="p-3">
+                    <span className="font-medium">{member._count.registrations}</span>
+                    {member.registrations.length > 0 && (
+                      <ul className="mt-1 max-w-xs space-y-1 text-xs text-muted-foreground">
+                        {member.registrations.map(({ id, course }) => <li key={id}>{course.title}</li>)}
+                      </ul>
+                    )}
+                  </td>
                   <td className="p-3">{member._count.payments}</td>
                   <td className="p-3">{member._count.projects}</td>
                   <td className="whitespace-nowrap p-3 text-xs text-muted-foreground">

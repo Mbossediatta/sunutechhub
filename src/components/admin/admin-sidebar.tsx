@@ -2,10 +2,11 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, MessageSquare, BookOpen,
-  Briefcase, Flag, BarChart2, Settings, Code2,
+  Briefcase, Flag, BarChart2, Settings,
   CalendarDays, ChevronRight, BadgeDollarSign,
   CreditCard, ClipboardCheck, ScrollText,
 } from "lucide-react";
@@ -54,13 +55,15 @@ function AdminSidebarInner() {
     <aside className="hidden md:flex w-64 flex-col border-r bg-card shrink-0 h-screen sticky top-0">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2.5 px-5 border-b">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <Code2 className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="font-bricolage font-bold text-sm leading-tight">Sunu Tech Hub</p>
-          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Administration</p>
-        </div>
+        <Link href="/admin" aria-label="Accueil de l’administration">
+          <Image
+            src="/logo-sunutech.png"
+            alt="Sunu Tech Hub"
+            width={180}
+            height={45}
+            className="h-11 w-auto rounded-lg bg-white object-contain"
+          />
+        </Link>
       </div>
 
       {/* Navigation */}

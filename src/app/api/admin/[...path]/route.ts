@@ -27,25 +27,38 @@ async function proxyAdminRequest(request: Request, context: RouteContext) {
     body = await request.text();
   }
 
-  let response: Response;
-  try {
-    response = await fetch(
-      backendUrl(backendPath, new URL(request.url).search),
-      {
-        method: request.method,
-        headers,
-        body,
-        cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
-      },
-    );
-  } catch {
+  let response: Response | undefined;
+  const attempts = request.method === "GET" ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      response = await fetch(
+        backendUrl(backendPath, new URL(request.url).search),
+        {
+          method: request.method,
+          headers,
+          body,
+          cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      break;
+    } catch {
+      if (attempt === attempts - 1) {
+        return NextResponse.json(
+          { message: "Impossible de joindre le serveur. Vérifie que le backend est démarré, puis réessaie." },
+          { status: 503 },
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  if (!response) {
     return NextResponse.json(
-      { message: "Impossible de joindre le serveur. Réessaie dans un instant." },
+      { message: "Aucune réponse du serveur. Réessaie dans un instant." },
       { status: 503 },
     );
   }
-
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     const payload: unknown = await response.json().catch(() => null);
@@ -67,5 +80,9 @@ export async function POST(request: Request, context: RouteContext) {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  return proxyAdminRequest(request, context);
+}
+
+export async function DELETE(request: Request, context: RouteContext) {
   return proxyAdminRequest(request, context);
 }

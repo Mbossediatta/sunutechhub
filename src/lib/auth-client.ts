@@ -70,6 +70,7 @@ export async function submitAuthForm(
   if (!isAuthResponse(result)) {
     throw new Error("Réponse d’authentification invalide.");
   }
+  window.dispatchEvent(new Event("sth:auth-changed"));
   return result;
 }
 

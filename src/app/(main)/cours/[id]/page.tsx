@@ -3,7 +3,17 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, BookOpen, LoaderCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  BookOpen,
+  CalendarDays,
+  ExternalLink,
+  FileText,
+  LoaderCircle,
+  Radio,
+  Video,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +26,7 @@ type Course = {
   level: string;
   instructorName: string;
   duration: string;
+  coverImageUrl: string | null;
   lessons: number;
   subjects: string[];
   isFree: boolean;
@@ -30,6 +41,16 @@ type Course = {
 };
 
 type CheckoutResult = { checkoutUrl?: string | null; status?: string };
+type CourseContentItem = {
+  id: string;
+  type: "VIDEO" | "RESOURCE" | "LIVE_SESSION";
+  title: string;
+  description: string;
+  url: string;
+  scheduledAt: string | null;
+  position: number;
+};
+type ContentAccess = "checking" | "available" | "login" | "enroll" | "error";
 
 function price(value: number, currency: string) {
   return `${new Intl.NumberFormat("fr-FR").format(value)} ${currency}`;
@@ -43,6 +64,53 @@ export default function CoursDetailPage() {
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [content, setContent] = useState<CourseContentItem[]>([]);
+  const [contentAccess, setContentAccess] = useState<ContentAccess>("checking");
+  const [contentError, setContentError] = useState("");
+
+  const loadContent = useCallback(async (courseId: string) => {
+    setContentAccess("checking");
+    setContentError("");
+    try {
+      const response = await fetch(
+        `/api/courses/${encodeURIComponent(courseId)}/content`,
+        { cache: "no-store" },
+      );
+      const result: unknown = await response.json().catch(() => null);
+      if (response.status === 401) {
+        setContent([]);
+        setContentAccess("login");
+        return;
+      }
+      if (response.status === 403) {
+        setContent([]);
+        setContentAccess("enroll");
+        return;
+      }
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de charger le contenu du cours.";
+        throw new Error(message);
+      }
+      if (!Array.isArray(result)) {
+        throw new Error("La réponse du contenu du cours est invalide.");
+      }
+      setContent(result as CourseContentItem[]);
+      setContentAccess("available");
+    } catch (loadError) {
+      setContentError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Impossible de charger le contenu du cours.",
+      );
+      setContentAccess("error");
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -52,12 +120,13 @@ export default function CoursDetailPage() {
       const found = (result as Course[]).find((item) => item.id === params.id);
       if (!found) throw new Error("Cours introuvable.");
       setCourse(found);
+      await loadContent(found.id);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Impossible de charger le cours.");
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [loadContent, params.id]);
 
   useEffect(() => {
     void load();
@@ -76,6 +145,7 @@ export default function CoursDetailPage() {
         throw new Error(message);
       }
       setNotice("Ton inscription gratuite au cours est enregistrée.");
+      await loadContent(course.id);
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : "Impossible de s’inscrire.");
     } finally {
@@ -126,6 +196,13 @@ export default function CoursDetailPage() {
       ) : course ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <section>
+            {course.coverImageUrl && (
+              <img
+                src={course.coverImageUrl}
+                alt={`Couverture du cours ${course.title}`}
+                className="mb-6 aspect-video w-full rounded-2xl object-cover"
+              />
+            )}
             <div className="mb-3 flex flex-wrap gap-2">
               <Badge>{course.level}</Badge>
               {course.subjects.map((subject) => <Badge key={subject} variant="outline">{subject}</Badge>)}
@@ -143,6 +220,109 @@ export default function CoursDetailPage() {
                 ? "Ce cours est gratuit."
                 : `Chaque inscription payante donne accès pendant ${course.prices.accessDays} jours à compter du paiement.`}
             </p>
+            <section className="mt-8 rounded-2xl border bg-card p-5">
+              <h2 className="font-bricolage text-xl font-bold">
+                Leçons et séances
+              </h2>
+              {contentAccess === "checking" ? (
+                <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <LoaderCircle className="h-4 w-4 animate-spin" /> Vérification
+                  de ton inscription…
+                </p>
+              ) : contentAccess === "login" ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Connecte-toi puis inscris-toi à ce cours pour accéder aux
+                  vidéos, supports et séances.
+                  {" "}
+                  <Link href="/connexion" className="font-medium text-primary hover:underline">
+                    Se connecter
+                  </Link>
+                </p>
+              ) : contentAccess === "enroll" ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Le contenu du cours est réservé aux membres inscrits.
+                    Après avoir terminé ton inscription, actualise l’accès ici.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void loadContent(course.id)}
+                  >
+                    Actualiser mon accès
+                  </Button>
+                </div>
+              ) : contentAccess === "error" ? (
+                <p role="alert" className="mt-3 text-sm text-accent">
+                  {contentError}
+                </p>
+              ) : content.length ? (
+                <ol className="mt-4 divide-y">
+                  {content.map((item) => {
+                    const Icon =
+                      item.type === "VIDEO"
+                        ? Video
+                        : item.type === "LIVE_SESSION"
+                          ? Radio
+                          : FileText;
+                    const label =
+                      item.type === "VIDEO"
+                        ? "Leçon vidéo"
+                        : item.type === "LIVE_SESSION"
+                          ? "Séance en direct"
+                          : "Support de cours";
+                    return (
+                      <li
+                        key={item.id}
+                        className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex items-start gap-3">
+                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <div>
+                            <p className="font-medium">{item.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {label}
+                              {item.scheduledAt &&
+                                ` · ${new Intl.DateTimeFormat("fr-FR", {
+                                  dateStyle: "long",
+                                  timeStyle: "short",
+                                }).format(new Date(item.scheduledAt))}`}
+                            </p>
+                            {item.description && (
+                              <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline sm:ml-7"
+                        >
+                          {item.type === "LIVE_SESSION"
+                            ? "Rejoindre la séance"
+                            : "Ouvrir la ressource"}
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Aucun contenu n’a encore été publié pour ce cours.
+                </p>
+              )}
+              {content.length > 0 && (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Les liens de séance apparaissent ici pour les membres inscrits.
+                </p>
+              )}
+            </section>
           </section>
 
           <Card className="h-fit lg:sticky lg:top-24">
