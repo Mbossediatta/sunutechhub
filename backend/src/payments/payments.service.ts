@@ -39,9 +39,10 @@ export class PaymentsService {
   ) {}
 
   async checkout(userId: string, input: CheckoutDto) {
-    if (!this.payTech.isConfigured()) {
+    const payTechConfiguration = this.payTech.getConfigurationStatus();
+    if (!payTechConfiguration.ready) {
       throw new ServiceUnavailableException(
-        'Le paiement n’est pas encore activé. Configurez les identifiants PayTech et l’adresse HTTPS de notification.',
+        `Configuration PayTech incomplète : ${payTechConfiguration.issues.join(' ')}`,
       );
     }
 
@@ -182,7 +183,7 @@ export class PaymentsService {
           promotionId: promotion?.id,
           object,
           level,
-          method: input.method,
+          method: PaymentMethod.WAVE,
           amountBeforePromo,
           amountPaid,
           discountAmount,
@@ -232,7 +233,6 @@ export class PaymentsService {
         amount: payment.amountPaid,
         currency: payment.currency,
         reference: payment.reference,
-        paymentMethod: payment.method,
         paymentId: payment.id,
       });
       return this.prisma.payment.update({

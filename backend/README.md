@@ -110,6 +110,20 @@ Les réservations d’utilisation sont libérées si PayTech refuse la demande o
 le paiement est annulé. Les réductions sont calculées uniquement lors de la
 création du paiement et sont conservées dans son historique.
 
+## Plateforme et annonces
+
+- `GET /api/platform-settings` : nom, logo, e-mail de contact et site web publics.
+- `GET /api/announcements` : annonces publiées, affichées sur le site.
+- `GET /api/admin/settings` : paramètres de plateforme et annonces, réservé aux administrateurs.
+- `PATCH /api/admin/settings` : met à jour le nom, le logo (URL HTTPS), l’e-mail de contact et le site web.
+- `POST /api/admin/settings/announcements` : crée un brouillon d’annonce.
+- `PATCH /api/admin/settings/announcements/:id` : modifie une annonce ou la publie/la masque.
+- `DELETE /api/admin/settings/announcements/:id` : supprime une annonce.
+
+La page Paramètres du frontend permet aussi à l’administrateur de modifier son nom
+de profil. Les identifiants SMTP restent configurés côté serveur et ne sont pas
+exposés dans l’interface.
+
 ## Inscriptions, paiement et attestations
 
 - `POST /api/payments/checkout` : choisit une offre, recalcule le prix côté
@@ -198,12 +212,16 @@ et `FRONTEND_URL`. Après chaque modification du `.env`, redémarrer le backend
 pour charger les nouvelles valeurs. Dans l’administration, la page **Paiements**
 affiche un diagnostic de configuration sans révéler les clés.
 
-`PAYTECH_PUBLIC_API_URL` doit être une adresse publique en HTTPS qui mène au
-backend. PayTech envoie les confirmations à
-`https://<hôte-public>/api/webhooks/paytech`; `localhost` n’est pas joignable
-depuis PayTech. En développement, utiliser un tunnel HTTPS public pointant vers
-le port du backend. L’application appelle l’endpoint de paiement PayTech et
-redirige vers sa page de paiement Wave ou Orange Money. Les URL de retour sont
+`PAYTECH_PUBLIC_API_URL` et `FRONTEND_URL` doivent être des adresses publiques
+en HTTPS : PayTech ne peut pas atteindre `localhost`. En développement, si un
+seul tunnel est disponible, faire pointer son URL vers le frontend sur le port
+3000 et définir les deux variables avec cette même URL. Le frontend relaie
+alors `/api/webhooks/paytech` vers le backend configuré par `BACKEND_API_URL`.
+Avec deux tunnels, `PAYTECH_PUBLIC_API_URL` peut pointer directement vers le
+backend sur le port 4000 et `FRONTEND_URL` vers le frontend sur le port 3000.
+Après modification, redémarrer le backend et vérifier que le tunnel pointe vers
+le bon port. L’application appelle l’endpoint de paiement PayTech et redirige
+vers sa page de paiement Wave ou Orange Money. Les URL de retour sont
 `<FRONTEND_URL>/paiement/succes` et `<FRONTEND_URL>/paiement/annule`.
 
 La page de retour ne confirme jamais un paiement par elle-même : elle interroge
@@ -239,6 +257,5 @@ npm test
 npm run lint
 ```
 
-Le branchement du frontend à cette API, l’écran d’administration, la configuration
-de la base de production, les secrets PayTech/SMTP et la mise en ligne restent
-des étapes séparées.
+La configuration de la base de production, les secrets PayTech/SMTP et la mise
+en ligne restent à effectuer dans l’environnement de déploiement.

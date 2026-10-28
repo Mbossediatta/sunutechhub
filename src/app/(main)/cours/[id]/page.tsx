@@ -59,7 +59,6 @@ function price(value: number, currency: string) {
 export default function CoursDetailPage() {
   const params = useParams<{ id: string }>();
   const [course, setCourse] = useState<Course | null>(null);
-  const [method, setMethod] = useState<"WAVE" | "ORANGE_MONEY">("WAVE");
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState("");
   const [error, setError] = useState("");
@@ -162,7 +161,7 @@ export default function CoursDetailPage() {
       const response = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId: course.id, object, method }),
+        body: JSON.stringify({ courseId: course.id, object }),
       });
       const result: unknown = await response.json().catch(() => null);
       if (!response.ok) {
@@ -335,13 +334,9 @@ export default function CoursDetailPage() {
                 </Button>
               ) : (
                 <>
-                  <label className="flex flex-col gap-2 text-sm font-medium">
-                    Moyen de paiement
-                    <select value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className="h-11 rounded-xl border border-input bg-background px-3">
-                      <option value="WAVE">Wave</option>
-                      <option value="ORANGE_MONEY">Orange Money</option>
-                    </select>
-                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Choisissez Wave ou Orange Money sur la page sécurisée PayTech.
+                  </p>
                   <Button variant="outline" disabled={working !== ""} onClick={() => void checkout("INSCRIPTION_BASE")}>
                     {working === "INSCRIPTION_BASE" && <LoaderCircle className="h-4 w-4 animate-spin" />}
                     Version de base — {price(course.prices.base, course.prices.currency)}

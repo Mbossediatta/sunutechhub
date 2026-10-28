@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentObject } from '@prisma/client';
+import { PaymentObject } from '@prisma/client';
 import {
   IsEnum,
   IsOptional,
@@ -14,9 +14,6 @@ export class CheckoutDto {
 
   @IsEnum(PaymentObject)
   object!: PaymentObject;
-
-  @IsEnum(PaymentMethod)
-  method!: PaymentMethod;
 
   @IsOptional()
   @IsString()

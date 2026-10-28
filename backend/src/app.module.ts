@@ -17,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
 import { ReceiptsModule } from './receipts/receipts.module.js';
+import { PlatformSettingsModule } from './platform-settings/platform-settings.module.js';
 
 function validateEnvironment(environment: Record<string, unknown>) {
   const jwtSecret = environment.JWT_SECRET;
@@ -43,6 +44,7 @@ function validateEnvironment(environment: Record<string, unknown>) {
     CoursesModule,
     CommunityModule,
     PromotionsModule,
+    PlatformSettingsModule,
     ProjectsModule,
     PaymentsModule,
     AttestationsModule,

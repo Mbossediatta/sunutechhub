@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  allowedDevOrigins: ["uproot-retold-flaccid.ngrok-free.dev"],
   experimental: {
     agentUpgrade: "security",
   },

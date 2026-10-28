@@ -5,6 +5,7 @@ import { ProjectCard } from "@/components/cards/project-card";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Projets" };
+export const instant = false;
 
 type Project = {
   id: string;

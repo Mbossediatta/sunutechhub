@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Metadata } from "next";
 
+export const instant = false;
+
 type Project = {
   id: string;
   title: string;

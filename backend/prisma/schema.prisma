@@ -241,6 +241,24 @@ model PriceChange {
   @@index([courseId, changedAt])
 }
 
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  link      String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published, updatedAt])
+}
+
 model Promotion {
   id          String                @id @default(cuid())
   code        String                @unique

@@ -1,6 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PaymentMethod } from '@prisma/client';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 interface PayTechCheckoutInput {
@@ -8,7 +7,6 @@ interface PayTechCheckoutInput {
   amount: number;
   currency: string;
   reference: string;
-  paymentMethod: PaymentMethod;
   paymentId: string;
 }
 
@@ -48,8 +46,20 @@ export class PayTechService {
     const frontendUrl = this.readUrl('FRONTEND_URL');
     if (!frontendUrl) {
       issues.push('FRONTEND_URL doit être une adresse web valide.');
-    } else if (isProduction && frontendUrl.protocol !== 'https:') {
-      issues.push('FRONTEND_URL doit utiliser HTTPS en production.');
+    } else {
+      if (this.isLocalHostname(frontendUrl.hostname)) {
+        issues.push(
+          'FRONTEND_URL doit être une adresse publique accessible à PayTech ; localhost n’est pas accepté.',
+        );
+      }
+      if (this.isPlaceholderHostname(frontendUrl.hostname)) {
+        issues.push(
+          'FRONTEND_URL utilise encore une adresse d’exemple. Configurez le domaine de votre site ou une URL HTTPS de tunnel.',
+        );
+      }
+      if (isProduction && frontendUrl.protocol !== 'https:') {
+        issues.push('FRONTEND_URL doit utiliser HTTPS en production.');
+      }
     }
 
     const callbackUrl = this.readUrl('PAYTECH_PUBLIC_API_URL');
@@ -58,6 +68,11 @@ export class PayTechService {
         'PAYTECH_PUBLIC_API_URL doit être une adresse web valide.',
       );
     } else {
+      if (this.isPlaceholderHostname(callbackUrl.hostname)) {
+        issues.push(
+          'PAYTECH_PUBLIC_API_URL utilise encore une adresse d’exemple. Configurez un domaine public HTTPS ou une URL HTTPS de tunnel.',
+        );
+      }
       if (callbackUrl.protocol !== 'https:') {
         issues.push(
           'PAYTECH_PUBLIC_API_URL doit utiliser HTTPS pour recevoir la notification PayTech.',
@@ -128,12 +143,16 @@ export class PayTechService {
       publicApiUrl,
       'PAYTECH_PUBLIC_API_URL',
     );
-    const frontendUrl = this.config
-      .getOrThrow<string>('FRONTEND_URL')
-      .replace(/\/+$/, '');
-    const targetPayment =
-      input.paymentMethod === PaymentMethod.WAVE ? 'Wave' : 'Orange Money';
-
+    const frontendUrl = this.readUrl('FRONTEND_URL');
+    if (!frontendUrl) {
+      throw new ServiceUnavailableException(
+        'FRONTEND_URL doit être une adresse publique valide.',
+      );
+    }
+    const successUrl = new URL('/paiement/succes', frontendUrl);
+    successUrl.searchParams.set('reference', input.reference);
+    const cancelUrl = new URL('/paiement/annule', frontendUrl);
+    cancelUrl.searchParams.set('reference', input.reference);
     let response: Response;
     try {
       response = await fetch(apiUrl, {
@@ -153,11 +172,11 @@ export class PayTechService {
               : input.currency.toUpperCase(),
           ref_command: input.reference,
           command_name: input.itemName,
-          target_payment: targetPayment,
+          target_payment: 'Wave, Orange Money',
           env: environment,
           ipn_url: `${callbackBase}/api/webhooks/paytech`,
-          success_url: `${frontendUrl}/paiement/succes?reference=${encodeURIComponent(input.reference)}`,
-          cancel_url: `${frontendUrl}/paiement/annule?reference=${encodeURIComponent(input.reference)}`,
+          success_url: successUrl.toString(),
+          cancel_url: cancelUrl.toString(),
           custom_field: JSON.stringify({ payment_id: input.paymentId }),
         }),
         signal: AbortSignal.timeout(15_000),
@@ -239,6 +258,18 @@ export class PayTechService {
       normalized === '0.0.0.0' ||
       normalized === '127.0.0.1' ||
       normalized.endsWith('.localhost')
+    );
+  }
+
+  private isPlaceholderHostname(hostname: string) {
+    const normalized = hostname.toLowerCase();
+    return (
+      normalized === 'example.com' ||
+      normalized.endsWith('.example.com') ||
+      normalized === 'example.org' ||
+      normalized.endsWith('.example.org') ||
+      normalized === 'example.net' ||
+      normalized.endsWith('.example.net')
     );
   }
 

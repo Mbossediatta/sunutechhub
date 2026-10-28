@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -50,6 +50,50 @@ const nav = [
 
 function AdminSidebarInner() {
   const pathname = usePathname();
+  const [branding, setBranding] = useState({
+    platformName: "Sunu Tech Hub",
+    logoUrl: "/logo-sunutech.png",
+  });
+  const [adminName, setAdminName] = useState("Admin Sunu");
+
+  useEffect(() => {
+    void Promise.all([
+      fetch("/api/platform-settings", { cache: "no-store" }),
+      fetch("/api/auth/me", { cache: "no-store" }),
+    ])
+      .then(async ([settingsResponse, profileResponse]) => {
+        if (settingsResponse.ok) {
+          const result: unknown = await settingsResponse.json();
+          if (result && typeof result === "object") {
+            const settings = result as { platformName?: unknown; logoUrl?: unknown };
+            setBranding({
+              platformName:
+                typeof settings.platformName === "string" && settings.platformName
+                  ? settings.platformName
+                  : "Sunu Tech Hub",
+              logoUrl:
+                typeof settings.logoUrl === "string" && settings.logoUrl
+                  ? settings.logoUrl
+                  : "/logo-sunutech.png",
+            });
+          }
+        }
+        if (profileResponse.ok) {
+          const profile: unknown = await profileResponse.json();
+          if (
+            profile &&
+            typeof profile === "object" &&
+            "name" in profile &&
+            typeof profile.name === "string"
+          ) {
+            setAdminName(profile.name);
+          }
+        }
+      })
+      .catch(() => {
+        // Keep the default admin branding and name if an endpoint is unavailable.
+      });
+  }, []);
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card shrink-0 h-screen sticky top-0">
@@ -57,10 +101,11 @@ function AdminSidebarInner() {
       <div className="flex h-16 items-center gap-2.5 px-5 border-b">
         <Link href="/admin" aria-label="Accueil de l’administration">
           <Image
-            src="/logo-sunutech.png"
-            alt="Sunu Tech Hub"
+            src={branding.logoUrl}
+            alt={branding.platformName}
             width={180}
             height={45}
+            unoptimized
             className="h-11 w-auto rounded-lg bg-white object-contain"
           />
         </Link>
@@ -105,10 +150,15 @@ function AdminSidebarInner() {
       <div className="border-t p-4">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
-            AD
+            {adminName
+              .split(/\s+/)
+              .map((part) => part[0] ?? "")
+              .slice(0, 2)
+              .join("")
+              .toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate">Admin Sunu</p>
+            <p className="text-xs font-semibold truncate">{adminName}</p>
             <p className="text-[10px] text-muted-foreground">Administrateur</p>
           </div>
         </div>

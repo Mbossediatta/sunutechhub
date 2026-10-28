@@ -21,7 +21,9 @@ const navLinks = [
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    void Promise.resolve().then(() => setMounted(true));
+  }, []);
 
   if (!mounted) return <div className="h-10 w-10 rounded-xl opacity-0" aria-hidden />;
 
@@ -45,6 +47,16 @@ function HeaderNav() {
   const [user, setUser] = useState<{ id: string; name: string; role: "MEMBER" | "ADMIN" } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [branding, setBranding] = useState({
+    platformName: "Sunu Tech Hub",
+    logoUrl: "/logo-sunutech.png",
+  });
+  const [announcement, setAnnouncement] = useState<{
+    id: string;
+    title: string;
+    body: string;
+    link: string | null;
+  } | null>(null);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -79,8 +91,56 @@ function HeaderNav() {
   }, []);
 
   useEffect(() => {
-    void refreshSession();
+    void Promise.resolve().then(refreshSession);
   }, [pathname, refreshSession]);
+
+  useEffect(() => {
+    void Promise.all([
+      fetch("/api/platform-settings", { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) return;
+        const result: unknown = await response.json();
+        if (result && typeof result === "object") {
+          const settings = result as { platformName?: unknown; logoUrl?: unknown };
+          setBranding({
+            platformName: typeof settings.platformName === "string" && settings.platformName
+              ? settings.platformName
+              : "Sunu Tech Hub",
+            logoUrl: typeof settings.logoUrl === "string" && settings.logoUrl
+              ? settings.logoUrl
+              : "/logo-sunutech.png",
+          });
+        }
+      }),
+      fetch("/api/announcements", { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) return;
+        const result: unknown = await response.json();
+        if (Array.isArray(result) && result.length > 0) {
+          const first = result[0];
+          if (
+            first &&
+            typeof first === "object" &&
+            "id" in first &&
+            typeof first.id === "string" &&
+            "title" in first &&
+            typeof first.title === "string" &&
+            "body" in first &&
+            typeof first.body === "string" &&
+            "link" in first &&
+            (typeof first.link === "string" || first.link === null)
+          ) {
+            setAnnouncement({
+              id: first.id,
+              title: first.title,
+              body: first.body,
+              link: first.link,
+            });
+          }
+        }
+      }),
+    ]).catch(() => {
+      // The public header keeps its local branding if the settings service is unavailable.
+    });
+  }, []);
 
   useEffect(() => {
     const handleAuthChange = () => void refreshSession();
@@ -107,7 +167,9 @@ function HeaderNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => { setMenuOpen(false); }, [pathname]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setMenuOpen(false));
+  }, [pathname]);
 
   return (
     <header className={cn(
@@ -119,10 +181,11 @@ function HeaderNav() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
           <Image
-            src="/logo-sunutech.png"
-            alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
+            src={branding.logoUrl}
+            alt={`${branding.platformName} — Apprendre, partager, construire ensemble`}
             width={200}
             height={50}
+            unoptimized
             priority
             className="h-10 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02]"
           />
@@ -229,6 +292,19 @@ function HeaderNav() {
             </>
           ) : null)}
           {authError && <p role="status" className="px-4 text-xs text-muted-foreground">{authError}</p>}
+        </div>
+      )}
+      {announcement && (
+        <div className="border-t bg-primary px-4 py-2 text-center text-sm text-primary-foreground">
+          {announcement.link ? (
+            <a href={announcement.link} className="font-medium underline-offset-4 hover:underline">
+              <span className="font-semibold">{announcement.title} :</span> {announcement.body}
+            </a>
+          ) : (
+            <p>
+              <span className="font-semibold">{announcement.title} :</span> {announcement.body}
+            </p>
+          )}
         </div>
       )}
     </header>
