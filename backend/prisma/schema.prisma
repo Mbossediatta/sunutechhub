@@ -1,0 +1,447 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+enum CourseLevel {
+  BASE
+  AVANCE
+}
+
+enum CourseContentType {
+  VIDEO
+  RESOURCE
+  LIVE_SESSION
+}
+
+enum PaymentObject {
+  INSCRIPTION_BASE
+  INSCRIPTION_AVANCE
+  PASSAGE_AVANCE
+  ATTESTATION
+}
+
+enum PaymentMethod {
+  WAVE
+  ORANGE_MONEY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED
+}
+
+enum RedemptionStatus {
+  RESERVED
+  REDEEMED
+  RELEASED
+}
+
+enum ProjectStatus {
+  PENDING
+  APPROVED
+  NEEDS_IMPROVEMENT
+}
+
+enum QuestionStatus {
+  OPEN
+  SOLVED
+  HIDDEN
+}
+
+enum ContentReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+}
+
+enum CommunityEventMode {
+  ONLINE
+  IN_PERSON
+}
+
+enum JobType {
+  EMPLOYMENT
+  INTERNSHIP
+  CONTRACT
+}
+
+enum JobStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  CLOSED
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  city                String?
+  bio                 String?
+  passwordHash        String
+  googleSubject       String?              @unique
+  role                UserRole             @default(MEMBER)
+  interests           String[]             @default([])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  registrations       CourseRegistration[]
+  payments            Payment[]
+  projects            CourseProject[]      @relation("ProjectOwner")
+  reviews             CourseProject[]      @relation("ProjectReviewer")
+  priceChanges        PriceChange[]
+  attestations        Attestation[]
+  magicLinkTokens     MagicLinkToken[]
+  revokedAttestations Attestation[]        @relation("AttestationRevoker")
+  questions           CommunityQuestion[]
+  answers             CommunityAnswer[]
+  reports             ContentReport[]      @relation("ReportAuthor")
+  reviewedReports     ContentReport[]      @relation("ReportReviewer")
+  eventRegistrations  EventRegistration[]
+  createdEvents       CommunityEvent[]     @relation("EventCreator")
+  createdJobs         JobOffer[]           @relation("JobCreator")
+  reviewedJobs        JobOffer[]           @relation("JobReviewer")
+}
+
+model Course {
+  id               String               @id @default(cuid())
+  title            String
+  description      String
+  language         String               @default("Français")
+  level            String               @default("Débutant")
+  instructorName   String               @default("Sunu Tech Hub")
+  duration         String               @default("")
+  coverImageUrl    String?
+  lessons          Int                  @default(0)
+  subjects         String[]             @default([])
+  isFree           Boolean              @default(false)
+  basePrice        Int?
+  advancedPrice    Int?
+  upgradePrice     Int?
+  attestationPrice Int?
+  active           Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  registrations    CourseRegistration[]
+  contents         CourseContent[]
+  payments         Payment[]
+  projects         CourseProject[]
+  priceChanges     PriceChange[]
+  attestations     Attestation[]
+
+  @@index([active, createdAt])
+}
+
+model CourseContent {
+  id          String            @id @default(cuid())
+  courseId    String
+  type        CourseContentType
+  title       String
+  description String            @default("")
+  url         String
+  scheduledAt DateTime?
+  position    Int               @default(0)
+  published   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, published, position])
+}
+
+model CourseRegistration {
+  id             String      @id @default(cuid())
+  userId         String
+  courseId       String
+  level          CourseLevel
+  startsAt       DateTime?
+  endsAt         DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course         Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+
+  @@unique([userId, courseId])
+  @@index([userId, endsAt])
+}
+
+model Payment {
+  id                String               @id @default(cuid())
+  reference         String               @unique
+  userId            String
+  courseId          String?
+  registrationId    String?
+  projectId         String?
+  promotionId       String?
+  object            PaymentObject
+  level             CourseLevel?
+  method            PaymentMethod
+  status            PaymentStatus        @default(PENDING)
+  amountBeforePromo Int
+  amountPaid        Int
+  discountAmount    Int                  @default(0)
+  currency          String
+  accessDays        Int
+  promoCode         String?
+  providerToken     String?
+  checkoutUrl       String?
+  providerReference String?
+  createdAt         DateTime             @default(now())
+  paidAt            DateTime?
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  course            Course?              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  project           CourseProject?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  registration      CourseRegistration?  @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  promotion         Promotion?           @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  redemption        PromotionRedemption?
+  receipt           ReceiptOutbox?
+  attestation       Attestation?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PriceSetting {
+  key        String   @id
+  value      String
+  modifiedBy String?
+  updatedAt  DateTime @updatedAt
+}
+
+model PriceChange {
+  id         String   @id @default(cuid())
+  key        String
+  oldValue   String?
+  newValue   String
+  modifiedBy String
+  changedAt  DateTime @default(now())
+  user       User     @relation(fields: [modifiedBy], references: [id], onDelete: Restrict)
+  courseId   String?
+  course     Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([changedAt])
+  @@index([courseId, changedAt])
+}
+
+model Promotion {
+  id          String                @id @default(cuid())
+  code        String                @unique
+  type        PromotionType
+  value       Int
+  startsAt    DateTime              @default(now())
+  expiresAt   DateTime
+  usageLimit  Int?
+  usedCount   Int                   @default(0)
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  payments    Payment[]
+  redemptions PromotionRedemption[]
+
+  @@index([active, expiresAt])
+}
+
+model PromotionRedemption {
+  id          String           @id @default(cuid())
+  promotionId String
+  paymentId   String           @unique
+  status      RedemptionStatus @default(RESERVED)
+  createdAt   DateTime         @default(now())
+  promotion   Promotion        @relation(fields: [promotionId], references: [id], onDelete: Restrict)
+  payment     Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId, status])
+}
+
+model CourseProject {
+  id                  String        @id @default(cuid())
+  userId              String
+  courseId            String
+  title               String
+  description         String
+  link                String?
+  status              ProjectStatus @default(PENDING)
+  reviewNote          String?
+  submittedAt         DateTime      @default(now())
+  reviewedAt          DateTime?
+  reviewerId          String?
+  user                User          @relation("ProjectOwner", fields: [userId], references: [id], onDelete: Cascade)
+  course              Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  reviewer            User?         @relation("ProjectReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  attestationPayments Payment[]
+
+  @@index([userId, courseId, status])
+}
+
+model Attestation {
+  id                String            @id @default(cuid())
+  number            String            @unique
+  userId            String
+  courseId          String
+  paymentId         String            @unique
+  status            AttestationStatus @default(ACTIVE)
+  displayNamePublic Boolean           @default(false)
+  issuedAt          DateTime          @default(now())
+  revokedAt         DateTime?
+  revocationReason  String?
+  revokedById       String?
+  user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  course            Course            @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  revokedBy         User?             @relation("AttestationRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, issuedAt])
+}
+
+enum AttestationStatus {
+  ACTIVE
+  REVOKED
+}
+
+model ReceiptOutbox {
+  id            String    @id @default(cuid())
+  paymentId     String    @unique
+  recipient     String
+  subject       String
+  text          String
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  sentAt        DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  payment       Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt, nextAttemptAt])
+}
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model CommunityQuestion {
+  id        String            @id @default(cuid())
+  title     String
+  body      String
+  subjects  String[]          @default([])
+  status    QuestionStatus    @default(OPEN)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers   CommunityAnswer[]
+  reports   ContentReport[]
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model CommunityAnswer {
+  id         String            @id @default(cuid())
+  body       String
+  hidden     Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  questionId String
+  userId     String
+  question   CommunityQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports    ContentReport[]
+
+  @@index([questionId, hidden, createdAt])
+}
+
+model ContentReport {
+  id         String              @id @default(cuid())
+  reason     String
+  details    String?
+  status     ContentReportStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  reviewedAt DateTime?
+  reporterId String
+  reviewerId String?
+  questionId String?
+  answerId   String?
+  reporter   User                @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewer   User?               @relation("ReportReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  question   CommunityQuestion?  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer     CommunityAnswer?    @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model CommunityEvent {
+  id            String              @id @default(cuid())
+  title         String
+  description   String
+  startsAt      DateTime
+  endsAt        DateTime?
+  location      String
+  mode          CommunityEventMode
+  capacity      Int?
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  createdById   String
+  createdBy     User                @relation("EventCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  registrations EventRegistration[]
+
+  @@index([active, startsAt])
+}
+
+model EventRegistration {
+  id        String         @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime       @default(now())
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, createdAt])
+}
+
+model JobOffer {
+  id           String    @id @default(cuid())
+  title        String
+  company      String
+  city         String
+  type         JobType
+  level        String
+  description  String
+  applyUrl     String?
+  status       JobStatus @default(PENDING)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String
+  reviewedById String?
+  createdBy    User      @relation("JobCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy   User?     @relation("JobReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}

@@ -1,0 +1,3 @@
+ALTER TABLE "User"
+ADD COLUMN "city" TEXT,
+ADD COLUMN "bio" TEXT;
