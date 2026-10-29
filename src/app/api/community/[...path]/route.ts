@@ -56,6 +56,10 @@ export async function POST(request: Request, context: RouteContext) {
   return proxyCommunityRequest(request, context);
 }
 
+export async function PUT(request: Request, context: RouteContext) {
+  return proxyCommunityRequest(request, context);
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   return proxyCommunityRequest(request, context);
 }

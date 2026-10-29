@@ -24,6 +24,10 @@ describe('CoursesService course content', () => {
       update: vi.fn(),
       deleteMany: vi.fn(),
     },
+    courseContentNotification: {
+      createMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
     lessonProgress: {
       upsert: vi.fn(),
       deleteMany: vi.fn(),
@@ -170,6 +174,61 @@ describe('CoursesService course content', () => {
         },
       }),
     );
+  });
+
+  it('queues an email notification for active course members when content is published', async () => {
+    const transaction = {
+      courseContent: {
+        create: vi.fn().mockResolvedValue({
+          id: 'content-1',
+          published: true,
+        }),
+      },
+      courseRegistration: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            { user: { email: 'member@example.com', name: 'Membre' } },
+          ]),
+      },
+      courseContentNotification: {
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.course.findUnique.mockResolvedValue({ id: 'course-1' });
+    prisma.$transaction.mockImplementation(
+      (callback: (tx: typeof transaction) => Promise<unknown>) =>
+        callback(transaction),
+    );
+
+    await courses.createContent('course-1', {
+      type: 'VIDEO',
+      title: 'Nouvelle leçon',
+      url: 'https://example.com/lesson',
+      published: true,
+    });
+
+    expect(transaction.courseRegistration.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          courseId: 'course-1',
+          AND: expect.any(Array),
+        }),
+        select: { user: { select: { email: true, name: true } } },
+      }),
+    );
+    expect(
+      transaction.courseContentNotification.createMany,
+    ).toHaveBeenCalledWith({
+      data: [
+        {
+          contentId: 'content-1',
+          recipient: 'member@example.com',
+          recipientName: 'Membre',
+        },
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it('returns completed lesson progress only to an actively registered member', async () => {

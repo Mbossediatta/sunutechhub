@@ -4,9 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  JobStatus,
-} from '@prisma/client';
+import { JobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateAnswerDto } from './dto/create-answer.dto.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
@@ -48,7 +46,20 @@ export class CommunityService {
         user: { select: { id: true, name: true } },
         answers: {
           where: { hidden: false },
-          include: { user: { select: { id: true, name: true } } },
+          include: {
+            user: { select: { id: true, name: true } },
+            _count: {
+              select: {
+                likes: true,
+                comments: true,
+              },
+            },
+            comments: {
+              include: { user: { select: { id: true, name: true } } },
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -62,14 +73,24 @@ export class CommunityService {
       data: {
         title: input.title.trim(),
         body: input.body.trim(),
-        subjects: [...new Set((input.subjects ?? []).map((subject) => subject.trim()).filter(Boolean))],
+        subjects: [
+          ...new Set(
+            (input.subjects ?? [])
+              .map((subject) => subject.trim())
+              .filter(Boolean),
+          ),
+        ],
         userId,
       },
       select: questionSummary,
     });
   }
 
-  async createAnswer(userId: string, questionId: string, input: CreateAnswerDto) {
+  async createAnswer(
+    userId: string,
+    questionId: string,
+    input: CreateAnswerDto,
+  ) {
     const question = await this.prisma.communityQuestion.findFirst({
       where: { id: questionId, status: { in: ['OPEN', 'SOLVED'] } },
       select: { id: true, status: true },
@@ -82,6 +103,69 @@ export class CommunityService {
     }
     return this.prisma.communityAnswer.create({
       data: { questionId, userId, body: input.body.trim() },
+      include: { user: { select: { id: true, name: true } } },
+    });
+  }
+
+  async getLikedAnswers(userId: string, questionId: string) {
+    const question = await this.prisma.communityQuestion.findFirst({
+      where: { id: questionId, status: { in: ['OPEN', 'SOLVED'] } },
+      select: { id: true },
+    });
+    if (!question) throw new NotFoundException('Question introuvable.');
+
+    const likes = await this.prisma.communityAnswerLike.findMany({
+      where: { userId, answer: { questionId, hidden: false } },
+      select: { answerId: true },
+    });
+    return likes.map(({ answerId }) => answerId);
+  }
+
+  async setAnswerLike(userId: string, answerId: string, liked: boolean) {
+    const answer = await this.prisma.communityAnswer.findFirst({
+      where: {
+        id: answerId,
+        hidden: false,
+        question: { status: { in: ['OPEN', 'SOLVED'] } },
+      },
+      select: { id: true },
+    });
+    if (!answer) throw new NotFoundException('Réponse introuvable.');
+
+    if (liked) {
+      await this.prisma.communityAnswerLike.createMany({
+        data: [{ userId, answerId }],
+        skipDuplicates: true,
+      });
+    } else {
+      await this.prisma.communityAnswerLike.deleteMany({
+        where: { userId, answerId },
+      });
+    }
+
+    const [count, existingLike] = await Promise.all([
+      this.prisma.communityAnswerLike.count({ where: { answerId } }),
+      this.prisma.communityAnswerLike.findUnique({
+        where: { userId_answerId: { userId, answerId } },
+        select: { answerId: true },
+      }),
+    ]);
+    return { liked: Boolean(existingLike), count };
+  }
+
+  async createAnswerComment(userId: string, answerId: string, body: string) {
+    const answer = await this.prisma.communityAnswer.findFirst({
+      where: {
+        id: answerId,
+        hidden: false,
+        question: { status: { in: ['OPEN', 'SOLVED'] } },
+      },
+      select: { id: true },
+    });
+    if (!answer) throw new NotFoundException('Réponse introuvable.');
+
+    return this.prisma.communityAnswerComment.create({
+      data: { answerId, userId, body: body.trim() },
       include: { user: { select: { id: true, name: true } } },
     });
   }
@@ -132,7 +216,9 @@ export class CommunityService {
       include: {
         reporter: { select: { id: true, name: true, email: true } },
         reviewer: { select: { id: true, name: true } },
-        question: { select: { id: true, title: true, body: true, status: true } },
+        question: {
+          select: { id: true, title: true, body: true, status: true },
+        },
         answer: {
           select: {
             id: true,
@@ -181,7 +267,9 @@ export class CommunityService {
 
   listEvents(includeInactive = false) {
     return this.prisma.communityEvent.findMany({
-      where: includeInactive ? undefined : { active: true, startsAt: { gte: new Date() } },
+      where: includeInactive
+        ? undefined
+        : { active: true, startsAt: { gte: new Date() } },
       include: { _count: { select: { registrations: true } } },
       orderBy: { startsAt: 'asc' },
       take: 200,
@@ -217,7 +305,9 @@ export class CommunityService {
       select: { id: true, startsAt: true, endsAt: true },
     });
     if (!current) throw new NotFoundException('Événement introuvable.');
-    const nextStart = input.startsAt ? new Date(input.startsAt) : current.startsAt;
+    const nextStart = input.startsAt
+      ? new Date(input.startsAt)
+      : current.startsAt;
     const nextEnd =
       input.endsAt === undefined
         ? current.endsAt
@@ -260,10 +350,15 @@ export class CommunityService {
           select: { id: true },
         });
         if (existing) return { registered: true, alreadyRegistered: true };
-        if (event.capacity !== null && event._count.registrations >= event.capacity) {
+        if (
+          event.capacity !== null &&
+          event._count.registrations >= event.capacity
+        ) {
           throw new ConflictException('Cet événement a atteint sa capacité.');
         }
-        await transaction.eventRegistration.create({ data: { eventId, userId } });
+        await transaction.eventRegistration.create({
+          data: { eventId, userId },
+        });
         return { registered: true, alreadyRegistered: false };
       },
       { isolationLevel: 'Serializable' },

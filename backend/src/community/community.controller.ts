@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
@@ -12,6 +13,7 @@ import { Public } from '../common/decorators/public.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthenticatedRequest } from '../common/guards/jwt-auth.guard.js';
 import { CommunityService } from './community.service.js';
+import { CreateAnswerCommentDto } from './dto/create-answer-comment.dto.js';
 import { CreateAnswerDto } from './dto/create-answer.dto.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
 import { CreateJobDto } from './dto/create-job.dto.js';
@@ -19,6 +21,7 @@ import { CreateQuestionDto } from './dto/create-question.dto.js';
 import { CreateReportDto } from './dto/create-report.dto.js';
 import { ReviewJobDto } from './dto/review-job.dto.js';
 import { ReviewReportDto } from './dto/review-report.dto.js';
+import { SetAnswerLikeDto } from './dto/set-answer-like.dto.js';
 import { UpdateEventDto } from './dto/update-event.dto.js';
 
 @Controller()
@@ -52,6 +55,36 @@ export class CommunityController {
     @Body() body: CreateAnswerDto,
   ) {
     return this.community.createAnswer(request.user.id, id, body);
+  }
+
+  @Get('questions/:id/answers/likes')
+  getLikedAnswers(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.community.getLikedAnswers(request.user.id, id);
+  }
+
+  @Put('answers/:answerId/like')
+  setAnswerLike(
+    @Param('answerId') answerId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() body: SetAnswerLikeDto,
+  ) {
+    return this.community.setAnswerLike(request.user.id, answerId, body.liked);
+  }
+
+  @Post('answers/:answerId/comments')
+  createAnswerComment(
+    @Param('answerId') answerId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() body: CreateAnswerCommentDto,
+  ) {
+    return this.community.createAnswerComment(
+      request.user.id,
+      answerId,
+      body.body,
+    );
   }
 
   @Post('reports')
@@ -133,10 +166,7 @@ export class CommunityController {
 
   @Roles(UserRole.ADMIN)
   @Post('admin/jobs')
-  createJob(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: CreateJobDto,
-  ) {
+  createJob(@Req() request: AuthenticatedRequest, @Body() body: CreateJobDto) {
     return this.community.createJob(request.user.id, body);
   }
 

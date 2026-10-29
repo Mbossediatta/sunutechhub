@@ -55,6 +55,12 @@ conservés pendant 90 jours. Configurez `TRUSTED_PROXY_IPS` avec les adresses IP
 exactes des reverse proxies de confiance pour enregistrer l’adresse du visiteur;
 laissez cette variable vide si aucun proxy de confiance n’est utilisé.
 
+Lorsqu’un contenu de cours est publié pour la première fois, une notification
+e-mail est mise en file pour les membres dont l’inscription à ce cours est
+active. L’envoi utilise la configuration SMTP et réessaie automatiquement en
+cas d’échec. Dans l’espace Questions, les membres connectés peuvent aussi aimer
+les réponses et y ajouter des commentaires.
+
 ## Authentification et administration
 
 - `POST /api/auth/register` crée un compte membre à partir du nom, de l’adresse

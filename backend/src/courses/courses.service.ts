@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CourseContentType } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import type { CreateCourseDto } from './dto/create-course.dto.js';
@@ -348,17 +349,23 @@ export class CoursesService {
   ) {
     await this.requireCourse(courseId);
     const scheduledAt = this.contentSchedule(input.type, input.scheduledAt);
-    return this.prisma.courseContent.create({
-      data: {
-        courseId,
-        type: input.type,
-        title: input.title.trim(),
-        description: input.description?.trim() ?? '',
-        url: input.url.trim(),
-        scheduledAt,
-        position: input.position ?? 0,
-        published: input.published ?? false,
-      },
+    return this.prisma.$transaction(async (transaction) => {
+      const content = await transaction.courseContent.create({
+        data: {
+          courseId,
+          type: input.type,
+          title: input.title.trim(),
+          description: input.description?.trim() ?? '',
+          url: input.url.trim(),
+          scheduledAt,
+          position: input.position ?? 0,
+          published: input.published ?? false,
+        },
+      });
+      if (content.published) {
+        await this.queueContentNotifications(transaction, courseId, content.id);
+      }
+      return content;
     });
   }
 
@@ -377,6 +384,12 @@ export class CoursesService {
   ) {
     const current = await this.prisma.courseContent.findFirst({
       where: { id: contentId, courseId },
+      select: {
+        id: true,
+        type: true,
+        published: true,
+        scheduledAt: true,
+      },
     });
     if (!current) throw new NotFoundException('Contenu du cours introuvable.');
 
@@ -387,17 +400,53 @@ export class CoursesService {
         : input.scheduledAt;
     const scheduledAt = this.contentSchedule(type, scheduledInput);
 
-    return this.prisma.courseContent.update({
-      where: { id: contentId },
-      data: {
-        type: input.type,
-        title: input.title?.trim(),
-        description: input.description?.trim(),
-        url: input.url?.trim(),
-        scheduledAt,
-        position: input.position,
-        published: input.published,
+    const publishingNow = input.published === true && !current.published;
+    return this.prisma.$transaction(async (transaction) => {
+      const content = await transaction.courseContent.update({
+        where: { id: contentId },
+        data: {
+          type: input.type,
+          title: input.title?.trim(),
+          description: input.description?.trim(),
+          url: input.url?.trim(),
+          scheduledAt,
+          position: input.position,
+          published: input.published,
+        },
+      });
+      if (publishingNow) {
+        await this.queueContentNotifications(transaction, courseId, contentId);
+      }
+      return content;
+    });
+  }
+
+  private async queueContentNotifications(
+    transaction: Prisma.TransactionClient,
+    courseId: string,
+    contentId: string,
+  ) {
+    const now = new Date();
+    const registrations = await transaction.courseRegistration.findMany({
+      where: {
+        courseId,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+        ],
+        user: { email: { not: '' } },
       },
+      select: { user: { select: { email: true, name: true } } },
+    });
+    if (!registrations.length) return;
+
+    await transaction.courseContentNotification.createMany({
+      data: registrations.map(({ user }) => ({
+        contentId,
+        recipient: user.email,
+        recipientName: user.name,
+      })),
+      skipDuplicates: true,
     });
   }
 
@@ -417,6 +466,7 @@ export class CoursesService {
       select: { id: true },
     });
     if (!course) throw new NotFoundException('Cours introuvable.');
+    return course;
   }
 
   private contentSchedule(type: CourseContentType, value?: string | null) {

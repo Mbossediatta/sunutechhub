@@ -90,35 +90,37 @@ enum JobStatus {
 }
 
 model User {
-  id                       String               @id @default(cuid())
+  id                       String                   @id @default(cuid())
   name                     String
-  email                    String               @unique
+  email                    String                   @unique
   city                     String?
   bio                      String?
   passwordHash             String
-  googleSubject            String?              @unique
-  role                     UserRole             @default(MEMBER)
-  interests                String[]             @default([])
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
+  googleSubject            String?                  @unique
+  role                     UserRole                 @default(MEMBER)
+  interests                String[]                 @default([])
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
   registrations            CourseRegistration[]
   lessonProgress           LessonProgress[]
   payments                 Payment[]
-  manuallyVerifiedPayments Payment[]            @relation("PaymentManualVerifier")
-  projects                 CourseProject[]      @relation("ProjectOwner")
-  reviews                  CourseProject[]      @relation("ProjectReviewer")
+  manuallyVerifiedPayments Payment[]                @relation("PaymentManualVerifier")
+  projects                 CourseProject[]          @relation("ProjectOwner")
+  reviews                  CourseProject[]          @relation("ProjectReviewer")
   priceChanges             PriceChange[]
   attestations             Attestation[]
   magicLinkTokens          MagicLinkToken[]
-  revokedAttestations      Attestation[]        @relation("AttestationRevoker")
+  revokedAttestations      Attestation[]            @relation("AttestationRevoker")
   questions                CommunityQuestion[]
   answers                  CommunityAnswer[]
-  reports                  ContentReport[]      @relation("ReportAuthor")
-  reviewedReports          ContentReport[]      @relation("ReportReviewer")
+  answerComments           CommunityAnswerComment[]
+  answerLikes              CommunityAnswerLike[]
+  reports                  ContentReport[]          @relation("ReportAuthor")
+  reviewedReports          ContentReport[]          @relation("ReportReviewer")
   eventRegistrations       EventRegistration[]
-  createdEvents            CommunityEvent[]     @relation("EventCreator")
-  createdJobs              JobOffer[]           @relation("JobCreator")
-  reviewedJobs             JobOffer[]           @relation("JobReviewer")
+  createdEvents            CommunityEvent[]         @relation("EventCreator")
+  createdJobs              JobOffer[]               @relation("JobCreator")
+  reviewedJobs             JobOffer[]               @relation("JobReviewer")
   auditLogs                AdminAuditLog[]
 }
 
@@ -153,19 +155,20 @@ model Course {
 }
 
 model CourseContent {
-  id          String            @id @default(cuid())
-  courseId    String
-  type        CourseContentType
-  title       String
-  description String            @default("")
-  url         String
-  scheduledAt DateTime?
-  position    Int               @default(0)
-  published   Boolean           @default(false)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progress    LessonProgress[]
+  id            String                      @id @default(cuid())
+  courseId      String
+  type          CourseContentType
+  title         String
+  description   String                      @default("")
+  url           String
+  scheduledAt   DateTime?
+  position      Int                         @default(0)
+  published     Boolean                     @default(false)
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+  course        Course                      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress      LessonProgress[]
+  notifications CourseContentNotification[]
 
   @@index([courseId, published, position])
 }
@@ -371,6 +374,23 @@ model ReceiptOutbox {
   @@index([sentAt, nextAttemptAt])
 }
 
+model CourseContentNotification {
+  id            String        @id @default(cuid())
+  contentId     String
+  recipient     String
+  recipientName String
+  attempts      Int           @default(0)
+  nextAttemptAt DateTime      @default(now())
+  lockedUntil   DateTime?
+  sentAt        DateTime?
+  lastError     String?
+  createdAt     DateTime      @default(now())
+  content       CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, recipient])
+  @@index([sentAt, nextAttemptAt])
+}
+
 model MagicLinkToken {
   id        String    @id @default(cuid())
   userId    String
@@ -402,18 +422,44 @@ model CommunityQuestion {
 }
 
 model CommunityAnswer {
-  id         String            @id @default(cuid())
+  id         String                   @id @default(cuid())
   body       String
-  hidden     Boolean           @default(false)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  hidden     Boolean                  @default(false)
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
   questionId String
   userId     String
-  question   CommunityQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   CommunityQuestion        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reports    ContentReport[]
+  comments   CommunityAnswerComment[]
+  likes      CommunityAnswerLike[]
 
   @@index([questionId, hidden, createdAt])
+}
+
+model CommunityAnswerComment {
+  id        String          @id @default(cuid())
+  body      String
+  createdAt DateTime        @default(now())
+  answerId  String
+  userId    String
+  answer    CommunityAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([answerId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model CommunityAnswerLike {
+  answerId  String
+  userId    String
+  createdAt DateTime        @default(now())
+  answer    CommunityAnswer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, answerId])
+  @@index([answerId, createdAt])
 }
 
 model ContentReport {
