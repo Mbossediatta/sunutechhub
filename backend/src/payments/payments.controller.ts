@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 import { Public } from '../common/decorators/public.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import type { AuthenticatedRequest } from '../common/guards/jwt-auth.guard.js';
 import { CheckoutDto } from './dto/checkout.dto.js';
+import { ConfirmPaymentDto } from './dto/confirm-payment.dto.js';
 import { PayTechCallbackDto } from './dto/paytech-callback.dto.js';
 import { PaymentsService } from './payments.service.js';
 import { PayTechService } from './paytech.service.js';
@@ -20,6 +22,22 @@ export class PaymentsController {
   @Get('mine')
   listMine(@Req() request: AuthenticatedRequest) {
     return this.payments.listMine(request.user.id);
+  }
+
+  @Get(':reference/receipt')
+  async receipt(
+    @Param('reference') reference: string,
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ) {
+    const pdf = await this.payments.buildReceiptPdf(reference, request.user.id);
+    response
+      .setHeader('Content-Type', 'application/pdf')
+      .setHeader(
+        'Content-Disposition',
+        `attachment; filename="recu-paiement.pdf"; filename*=UTF-8''${encodeURIComponent(`${reference}-recu.pdf`)}`,
+      )
+      .send(pdf);
   }
 
   @Post(':reference/cancel')
@@ -58,5 +76,18 @@ export class AdminPaymentsController {
   @Get('status')
   getProviderStatus() {
     return this.payTech.getConfigurationStatus();
+  }
+
+  @Post(':reference/confirm')
+  confirmPayment(
+    @Param('reference') reference: string,
+    @Body() body: ConfirmPaymentDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.payments.confirmPaymentManually(
+      reference,
+      request.user.id,
+      body,
+    );
   }
 }

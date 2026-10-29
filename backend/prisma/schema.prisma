@@ -90,33 +90,35 @@ enum JobStatus {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  name                String
-  email               String               @unique
-  city                String?
-  bio                 String?
-  passwordHash        String
-  googleSubject       String?              @unique
-  role                UserRole             @default(MEMBER)
-  interests           String[]             @default([])
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  registrations       CourseRegistration[]
-  payments            Payment[]
-  projects            CourseProject[]      @relation("ProjectOwner")
-  reviews             CourseProject[]      @relation("ProjectReviewer")
-  priceChanges        PriceChange[]
-  attestations        Attestation[]
-  magicLinkTokens     MagicLinkToken[]
-  revokedAttestations Attestation[]        @relation("AttestationRevoker")
-  questions           CommunityQuestion[]
-  answers             CommunityAnswer[]
-  reports             ContentReport[]      @relation("ReportAuthor")
-  reviewedReports     ContentReport[]      @relation("ReportReviewer")
-  eventRegistrations  EventRegistration[]
-  createdEvents       CommunityEvent[]     @relation("EventCreator")
-  createdJobs         JobOffer[]           @relation("JobCreator")
-  reviewedJobs        JobOffer[]           @relation("JobReviewer")
+  id                       String               @id @default(cuid())
+  name                     String
+  email                    String               @unique
+  city                     String?
+  bio                      String?
+  passwordHash             String
+  googleSubject            String?              @unique
+  role                     UserRole             @default(MEMBER)
+  interests                String[]             @default([])
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  registrations            CourseRegistration[]
+  lessonProgress           LessonProgress[]
+  payments                 Payment[]
+  manuallyVerifiedPayments Payment[]            @relation("PaymentManualVerifier")
+  projects                 CourseProject[]      @relation("ProjectOwner")
+  reviews                  CourseProject[]      @relation("ProjectReviewer")
+  priceChanges             PriceChange[]
+  attestations             Attestation[]
+  magicLinkTokens          MagicLinkToken[]
+  revokedAttestations      Attestation[]        @relation("AttestationRevoker")
+  questions                CommunityQuestion[]
+  answers                  CommunityAnswer[]
+  reports                  ContentReport[]      @relation("ReportAuthor")
+  reviewedReports          ContentReport[]      @relation("ReportReviewer")
+  eventRegistrations       EventRegistration[]
+  createdEvents            CommunityEvent[]     @relation("EventCreator")
+  createdJobs              JobOffer[]           @relation("JobCreator")
+  reviewedJobs             JobOffer[]           @relation("JobReviewer")
 }
 
 model Course {
@@ -140,6 +142,7 @@ model Course {
   updatedAt        DateTime             @updatedAt
   registrations    CourseRegistration[]
   contents         CourseContent[]
+  lessonProgress   LessonProgress[]
   payments         Payment[]
   projects         CourseProject[]
   priceChanges     PriceChange[]
@@ -161,8 +164,23 @@ model CourseContent {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress    LessonProgress[]
 
   @@index([courseId, published, position])
+}
+
+model LessonProgress {
+  id          String        @id @default(cuid())
+  userId      String
+  courseId    String
+  contentId   String
+  completedAt DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  content     CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId])
+  @@index([userId, courseId])
 }
 
 model CourseRegistration {
@@ -204,6 +222,8 @@ model Payment {
   providerToken     String?
   checkoutUrl       String?
   providerReference String?
+  manualVerifiedAt  DateTime?
+  manualVerifierId  String?
   createdAt         DateTime             @default(now())
   paidAt            DateTime?
   user              User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -214,6 +234,7 @@ model Payment {
   redemption        PromotionRedemption?
   receipt           ReceiptOutbox?
   attestation       Attestation?
+  manualVerifier    User?                @relation("PaymentManualVerifier", fields: [manualVerifierId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status, createdAt])

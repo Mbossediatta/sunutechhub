@@ -134,8 +134,19 @@ exposés dans l’interface.
 - Les notifications PayTech arrivent sur `POST /api/webhooks/paytech`. Le
   backend vérifie les empreintes SHA-256 des clés API, le montant, la devise et
   la référence avant de confirmer l’inscription ou de créer une attestation.
+- Si le retour PayTech indique une réussite mais que le paiement reste en
+  attente, l’administrateur peut le confirmer depuis **Admin → Paiements**,
+  uniquement après avoir vérifié la transaction et son montant dans le tableau
+  de bord marchand PayTech. La confirmation demande le moyen et la référence
+  PayTech, active l’accès correspondant et conserve l’administrateur ainsi que
+  la date de vérification. La redirection du navigateur seule ne prouve jamais
+  un paiement.
 - `GET /api/payments/mine` et `GET /api/courses/enrollments/mine` listent
   l’historique personnel. Aucun renouvellement automatique n’est effectué.
+- `GET /api/payments/:reference/receipt` télécharge le reçu PDF d’un paiement
+  confirmé. `GET /api/courses/:id/progress` et
+  `PATCH /api/courses/:id/progress/:contentId` consultent et mettent à jour la
+  progression des contenus publiés pour un membre dont l’accès est actif.
 - `POST /api/courses/:id/projects` soumet un projet. Un administrateur l’évalue
   avec `GET /api/admin/projects` et `POST /api/admin/projects/:id/review`.
 - L’achat d’une attestation est refusé tant qu’un projet du membre n’est pas
@@ -145,6 +156,8 @@ exposés dans l’interface.
   vérification publique et à leur PDF A4 paysage avec QR code. Le nom n’est
   communiqué publiquement qu’après consentement explicite.
 - `PATCH /api/attestations/:number/visibility` modifie ce consentement.
+- Dans son profil, le membre retrouve ses paiements et reçus, ainsi que ses
+  attestations avec téléchargement PDF et page de vérification publique.
 - `PATCH /api/admin/attestations/:number/revoke` retire une attestation et
   conserve le motif et l’administrateur responsable.
 
@@ -234,8 +247,10 @@ possible. L’environnement `prod` nécessite l’activation du compte marchand.
 Les reçus sont placés dans une boîte d’envoi transactionnelle en base après
 confirmation du paiement. Configurez `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
 `SMTP_USER`, `SMTP_PASSWORD` et `SMTP_FROM` pour que le traitement automatique
-les expédie. Tant que SMTP n’est pas configuré, les reçus restent en attente et
-un avertissement apparaît dans les journaux.
+les expédie. Le courriel présente un récapitulatif HTML et joint le même reçu
+PDF professionnel que celui téléchargeable dans le profil membre. Tant que SMTP
+n’est pas configuré, les reçus restent en attente et un avertissement apparaît
+dans les journaux.
 Un rappel de renouvellement est envoyé sans prélèvement automatique environ
 trois jours avant l’échéance, à 9 h (heure de Dakar).
 
@@ -244,8 +259,10 @@ trois jours avant l’échéance, à 9 h (heure de Dakar).
 - Validation des entrées, rejet des propriétés inconnues, limitation de débit,
   Helmet et CORS par liste d’origines.
 - Mots de passe hachés avec bcrypt; rôles relus en base à chaque requête.
-- Aucun paiement n’est marqué réussi sur la base de la seule redirection du
-  navigateur : la confirmation nécessite la notification PayTech vérifiée.
+- Aucun paiement n’est marqué réussi automatiquement sur la base de la seule
+  redirection du navigateur : la confirmation automatique nécessite la
+  notification PayTech vérifiée. Une confirmation manuelle est réservée à
+  l’administration et exige une vérification préalable dans PayTech.
 - Les identifiants, secrets JWT, clés PayTech et mots de passe SMTP doivent être
   fournis par l’environnement et ne doivent jamais être commités.
 

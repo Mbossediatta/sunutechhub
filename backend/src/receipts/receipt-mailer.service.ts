@@ -2,7 +2,140 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
+import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ReceiptPdfService } from './receipt-pdf.service.js';
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return entities[character];
+  });
+}
+
+function formatAmount(amount: number, currency: string) {
+  return `${new Intl.NumberFormat('fr-FR').format(amount)} ${escapeHtml(currency)}`;
+}
+
+function receiptItemName(payment: {
+  object: string;
+  course: { title: string } | null;
+}) {
+  const title = payment.course?.title;
+  switch (payment.object) {
+    case 'INSCRIPTION_BASE':
+      return title
+        ? `Inscription - version de base - ${title}`
+        : 'Inscription - version de base';
+    case 'INSCRIPTION_AVANCE':
+      return title
+        ? `Inscription - version avancée - ${title}`
+        : 'Inscription - version avancée';
+    case 'PASSAGE_AVANCE':
+      return title
+        ? `Passage à la version avancée - ${title}`
+        : 'Passage à la version avancée';
+    case 'ATTESTATION':
+      return title
+        ? `Attestation de réussite - ${title}`
+        : 'Attestation de réussite';
+    default:
+      return title ?? 'Paiement';
+  }
+}
+
+function receiptEmailHtml(payment: {
+  reference: string;
+  amountPaid: number;
+  currency: string;
+  method: string;
+  providerReference: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+  user: { name: string };
+  course: { title: string } | null;
+  object: string;
+}) {
+  const paidAt = payment.paidAt ?? payment.createdAt;
+  const date = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'Africa/Dakar',
+  }).format(paidAt);
+  const itemName = receiptItemName(payment);
+  const method = payment.method === 'WAVE' ? 'Wave' : 'Orange Money';
+
+  return `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:24px 12px;background:#f3f5fa;font-family:Arial,Helvetica,sans-serif;color:#111830">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:620px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden">
+      <tr><td style="padding:28px 32px;background:#0e1630;border-bottom:5px solid #7c5cff">
+        <div style="font-size:20px;font-weight:700;color:#ffffff">Sunu Tech Hub</div>
+        <div style="margin-top:5px;font-size:11px;letter-spacing:1px;color:#cdd6ee">REÇU DE PAIEMENT</div>
+      </td></tr>
+      <tr><td style="padding:30px 32px 12px">
+        <div style="display:inline-block;padding:8px 12px;border-radius:20px;background:#e8f8f2;color:#147457;font-size:12px;font-weight:700">PAIEMENT CONFIRMÉ</div>
+        <h1 style="margin:18px 0 8px;font-size:23px;line-height:1.3">Merci pour votre paiement, ${escapeHtml(payment.user.name)}.</h1>
+        <p style="margin:0;color:#5d6984;font-size:14px;line-height:1.6">Votre transaction a bien été confirmée. Retrouvez ci-dessous son récapitulatif et le reçu PDF détaillé en pièce jointe.</p>
+      </td></tr>
+      <tr><td style="padding:14px 32px 20px">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e0e5f1;border-radius:12px">
+          <tr><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;color:#5d6984;font-size:13px">Objet</td><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;text-align:right;font-size:13px;font-weight:700">${escapeHtml(itemName)}</td></tr>
+          <tr><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;color:#5d6984;font-size:13px">Date</td><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;text-align:right;font-size:13px">${escapeHtml(date)}</td></tr>
+          <tr><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;color:#5d6984;font-size:13px">Moyen de paiement</td><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;text-align:right;font-size:13px">${method}</td></tr>
+          <tr><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;color:#5d6984;font-size:13px">Référence Sunu Tech Hub</td><td style="padding:16px 18px;border-bottom:1px solid #e0e5f1;text-align:right;font-size:13px">${escapeHtml(payment.reference)}</td></tr>
+          <tr><td style="padding:16px 18px;color:#5d6984;font-size:13px">Référence PayTech</td><td style="padding:16px 18px;text-align:right;font-size:13px">${escapeHtml(payment.providerReference ?? 'Non communiquée')}</td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 32px 26px">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f7ff;border-radius:12px">
+          <tr><td style="padding:18px;color:#5d6984;font-size:13px;font-weight:700">TOTAL PAYÉ</td><td style="padding:18px;text-align:right;color:#2b4eff;font-size:22px;font-weight:700">${formatAmount(payment.amountPaid, payment.currency)}</td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:20px 32px;background:#f8f9fc;color:#5d6984;font-size:12px;line-height:1.6">Le reçu PDF joint reprend les informations de cette transaction. Conservez-le pour vos dossiers.<br><strong style="color:#111830">Sunu Tech Hub</strong></td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function receiptEmailText(payment: {
+  reference: string;
+  amountPaid: number;
+  currency: string;
+  method: string;
+  providerReference: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+  user: { name: string };
+  course: { title: string } | null;
+  object: string;
+}) {
+  const date = new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'Africa/Dakar',
+  }).format(payment.paidAt ?? payment.createdAt);
+  return [
+    `Bonjour ${payment.user.name},`,
+    '',
+    'Votre paiement a été confirmé. Votre reçu PDF détaillé est joint à cet e-mail.',
+    `Objet : ${receiptItemName(payment)}`,
+    `Montant payé : ${formatAmount(payment.amountPaid, payment.currency)}`,
+    `Date : ${date}`,
+    `Moyen : ${payment.method === 'WAVE' ? 'Wave' : 'Orange Money'}`,
+    `Référence Sunu Tech Hub : ${payment.reference}`,
+    `Référence PayTech : ${payment.providerReference ?? 'Non communiquée'}`,
+    '',
+    'Merci pour votre confiance.',
+    'Sunu Tech Hub',
+  ].join('\n');
+}
 
 @Injectable()
 export class ReceiptMailerService {
@@ -12,6 +145,7 @@ export class ReceiptMailerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly receiptPdf: ReceiptPdfService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -47,11 +181,32 @@ export class ReceiptMailerService {
 
     for (const message of messages) {
       try {
+        const payment = await this.prisma.payment.findUnique({
+          where: { id: message.paymentId },
+          include: {
+            user: { select: { name: true, email: true } },
+            course: { select: { title: true } },
+          },
+        });
+        if (!payment || payment.status !== PaymentStatus.PAID) {
+          throw new Error(
+            `Paiement confirmé introuvable pour le reçu ${message.id}.`,
+          );
+        }
+        const pdf = await this.receiptPdf.build(payment);
         await transporter.sendMail({
           from,
           to: message.recipient,
           subject: message.subject,
-          text: message.text,
+          text: receiptEmailText(payment),
+          html: receiptEmailHtml(payment),
+          attachments: [
+            {
+              filename: `recu-sunu-tech-hub-${payment.reference.replace(/[^a-zA-Z0-9_-]/g, '-')}.pdf`,
+              content: pdf,
+              contentType: 'application/pdf',
+            },
+          ],
         });
         await this.prisma.receiptOutbox.update({
           where: { id: message.id },

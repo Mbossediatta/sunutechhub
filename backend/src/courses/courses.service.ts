@@ -59,12 +59,34 @@ export class CoursesService {
   async listAdmin() {
     const [courses, defaults] = await Promise.all([
       this.prisma.course.findMany({
-        include: { _count: { select: { registrations: true } } },
+        include: {
+          _count: {
+            select: {
+              registrations: true,
+              contents: {
+                where: {
+                  type: {
+                    in: [CourseContentType.VIDEO, CourseContentType.RESOURCE],
+                  },
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.pricing.getValues(),
     ]);
-    return courses.map((course) => this.withPrices(course, defaults));
+    return courses.map(({ _count, ...course }) =>
+      this.withPrices(
+        {
+          ...course,
+          lessons: _count.contents || course.lessons,
+          _count: { registrations: _count.registrations },
+        },
+        defaults,
+      ),
+    );
   }
 
   async get(id: string) {
@@ -209,6 +231,87 @@ export class CoursesService {
   }
 
   async listEnrolledContent(userId: string, courseId: string) {
+    await this.requireActiveRegistration(userId, courseId);
+
+    return this.prisma.courseContent.findMany({
+      where: { courseId, published: true },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        description: true,
+        url: true,
+        scheduledAt: true,
+        position: true,
+      },
+    });
+  }
+
+  async getProgress(userId: string, courseId: string) {
+    await this.requireActiveRegistration(userId, courseId);
+    const contents = await this.prisma.courseContent.findMany({
+      where: { courseId, published: true },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        progress: {
+          where: { userId },
+          select: { completedAt: true },
+        },
+      },
+    });
+    const lessons = contents.map(({ progress, ...content }) => ({
+      ...content,
+      completedAt: progress[0]?.completedAt ?? null,
+    }));
+    return {
+      courseId,
+      total: lessons.length,
+      completed: lessons.filter((lesson) => lesson.completedAt !== null).length,
+      lessons,
+    };
+  }
+
+  async updateProgress(
+    userId: string,
+    courseId: string,
+    contentId: string,
+    completed: boolean,
+  ) {
+    await this.requireActiveRegistration(userId, courseId);
+    const content = await this.prisma.courseContent.findFirst({
+      where: { id: contentId, courseId, published: true },
+      select: { id: true },
+    });
+    if (!content) throw new NotFoundException('Leçon introuvable.');
+
+    if (completed) {
+      await this.prisma.lessonProgress.upsert({
+        where: { userId_contentId: { userId, contentId } },
+        update: {},
+        create: { userId, courseId, contentId },
+      });
+    } else {
+      await this.prisma.lessonProgress.deleteMany({
+        where: { userId, contentId },
+      });
+    }
+
+    return this.getProgress(userId, courseId);
+  }
+
+  async listAdminContent(courseId: string) {
+    await this.requireCourse(courseId);
+    return this.prisma.courseContent.findMany({
+      where: { courseId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  private async requireActiveRegistration(userId: string, courseId: string) {
     const course = await this.prisma.course.findFirst({
       where: { id: courseId, active: true },
       select: { id: true },
@@ -229,28 +332,6 @@ export class CoursesService {
         'Inscris-toi à ce cours pour accéder à ses leçons et séances.',
       );
     }
-
-    return this.prisma.courseContent.findMany({
-      where: { courseId, published: true },
-      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        type: true,
-        title: true,
-        description: true,
-        url: true,
-        scheduledAt: true,
-        position: true,
-      },
-    });
-  }
-
-  async listAdminContent(courseId: string) {
-    await this.requireCourse(courseId);
-    return this.prisma.courseContent.findMany({
-      where: { courseId },
-      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    });
   }
 
   async createContent(
@@ -302,7 +383,7 @@ export class CoursesService {
     const type = input.type ?? current.type;
     const scheduledInput =
       input.scheduledAt === undefined
-        ? current.scheduledAt?.toISOString() ?? null
+        ? (current.scheduledAt?.toISOString() ?? null)
         : input.scheduledAt;
     const scheduledAt = this.contentSchedule(type, scheduledInput);
 
@@ -388,6 +469,8 @@ export class CoursesService {
   }
 
   private cleanSubjects(subjects: string[]) {
-    return [...new Set(subjects.map((subject) => subject.trim()).filter(Boolean))];
+    return [
+      ...new Set(subjects.map((subject) => subject.trim()).filter(Boolean)),
+    ];
   }
 }

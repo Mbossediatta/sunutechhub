@@ -11,6 +11,8 @@ describe('CoursesService course content', () => {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
     },
     courseRegistration: {
       findUnique: vi.fn(),
@@ -20,6 +22,10 @@ describe('CoursesService course content', () => {
       create: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    lessonProgress: {
+      upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
   };
@@ -126,5 +132,95 @@ describe('CoursesService course content', () => {
         },
       }),
     );
+  });
+
+  it('uses the actual lesson and resource count in the admin course list', async () => {
+    prisma.course.findMany.mockResolvedValue([
+      {
+        id: 'course-1',
+        title: 'Introduction au python',
+        description: 'Apprendre Python.',
+        isFree: false,
+        basePrice: null,
+        advancedPrice: null,
+        upgradePrice: null,
+        attestationPrice: null,
+        lessons: 0,
+        _count: { registrations: 3, contents: 4 },
+      },
+    ]);
+
+    const [course] = await courses.listAdmin();
+
+    expect(course.lessons).toBe(4);
+    expect(course._count.registrations).toBe(3);
+    expect(prisma.course.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          _count: {
+            select: {
+              registrations: true,
+              contents: {
+                where: {
+                  type: { in: ['VIDEO', 'RESOURCE'] },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+  });
+
+  it('returns completed lesson progress only to an actively registered member', async () => {
+    prisma.course.findFirst.mockResolvedValue({ id: 'course-1' });
+    prisma.courseRegistration.findUnique.mockResolvedValue({
+      startsAt: null,
+      endsAt: null,
+    });
+    prisma.courseContent.findMany.mockResolvedValue([
+      {
+        id: 'lesson-1',
+        type: 'VIDEO',
+        title: 'Variables',
+        progress: [{ completedAt: new Date('2026-10-28T12:00:00Z') }],
+      },
+      {
+        id: 'lesson-2',
+        type: 'RESOURCE',
+        title: 'Exercices',
+        progress: [],
+      },
+    ]);
+
+    await expect(courses.getProgress('member-1', 'course-1')).resolves.toEqual({
+      courseId: 'course-1',
+      total: 2,
+      completed: 1,
+      lessons: [
+        {
+          id: 'lesson-1',
+          type: 'VIDEO',
+          title: 'Variables',
+          completedAt: new Date('2026-10-28T12:00:00Z'),
+        },
+        {
+          id: 'lesson-2',
+          type: 'RESOURCE',
+          title: 'Exercices',
+          completedAt: null,
+        },
+      ],
+    });
+  });
+
+  it('refuses to record progress when the member has no active registration', async () => {
+    prisma.course.findFirst.mockResolvedValue({ id: 'course-1' });
+    prisma.courseRegistration.findUnique.mockResolvedValue(null);
+
+    await expect(
+      courses.updateProgress('member-1', 'course-1', 'lesson-1', true),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.lessonProgress.upsert).not.toHaveBeenCalled();
   });
 });

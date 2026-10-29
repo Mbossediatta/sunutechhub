@@ -17,6 +17,7 @@ import { UpdateCourseDto } from './dto/update-course.dto.js';
 import { UpdateCoursePricesDto } from './dto/update-course-prices.dto.js';
 import { CreateCourseContentDto } from './dto/create-course-content.dto.js';
 import { UpdateCourseContentDto } from './dto/update-course-content.dto.js';
+import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto.js';
 import { CoursesService } from './courses.service.js';
 
 @Controller('courses')
@@ -46,13 +47,29 @@ export class CoursesController {
   }
 
   @Get(':id/content')
-  listContent(
-    @Param('id') id: string,
-    @Req() request: AuthenticatedRequest,
-  ) {
+  listContent(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
     return this.courses.listEnrolledContent(request.user.id, id);
   }
 
+  @Get(':id/progress')
+  getProgress(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
+    return this.courses.getProgress(request.user.id, id);
+  }
+
+  @Patch(':id/progress/:contentId')
+  updateProgress(
+    @Param('id') id: string,
+    @Param('contentId') contentId: string,
+    @Body() body: UpdateLessonProgressDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.updateProgress(
+      request.user.id,
+      id,
+      contentId,
+      body.completed,
+    );
+  }
 }
 
 @Roles(UserRole.ADMIN)

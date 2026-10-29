@@ -19,6 +19,8 @@ import {
 import { randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../pricing/pricing.service.js';
+import { ReceiptPdfService } from '../receipts/receipt-pdf.service.js';
+import type { ConfirmPaymentDto } from './dto/confirm-payment.dto.js';
 import type { CheckoutDto } from './dto/checkout.dto.js';
 import type { PayTechCallbackDto } from './dto/paytech-callback.dto.js';
 import { addAccessDays, calculateDiscount } from './pricing-calculation.js';
@@ -36,6 +38,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly pricing: PricingService,
     private readonly payTech: PayTechService,
+    private readonly receiptPdf: ReceiptPdfService,
   ) {}
 
   async checkout(userId: string, input: CheckoutDto) {
@@ -327,15 +330,63 @@ export class PaymentsService {
     });
   }
 
+  async buildReceiptPdf(reference: string, userId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { reference, userId },
+      include: {
+        user: { select: { name: true, email: true } },
+        course: { select: { title: true } },
+      },
+    });
+    if (!payment) throw new NotFoundException('Paiement introuvable.');
+    if (payment.status !== PaymentStatus.PAID) {
+      throw new ConflictException(
+        'Le reçu sera disponible après confirmation du paiement.',
+      );
+    }
+
+    return this.receiptPdf.build(payment);
+  }
+
   listAdmin() {
     return this.prisma.payment.findMany({
       include: {
         user: { select: { id: true, name: true, email: true } },
         course: { select: { id: true, title: true } },
+        manualVerifier: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
+  }
+
+  async confirmPaymentManually(
+    reference: string,
+    adminId: string,
+    confirmation: ConfirmPaymentDto,
+  ) {
+    if (confirmation.confirmedInPayTech !== true) {
+      throw new BadRequestException(
+        'Confirmez que le paiement est marqué comme réussi dans PayTech.',
+      );
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { reference },
+      select: { id: true, status: true },
+    });
+    if (!payment) throw new NotFoundException('Paiement introuvable.');
+    if (payment.status !== PaymentStatus.PENDING) {
+      throw new ConflictException(
+        'Seul un paiement en attente peut être confirmé manuellement.',
+      );
+    }
+
+    await this.markPaid(payment.id, confirmation.method, {
+      adminId,
+      providerReference: confirmation.providerReference.trim(),
+    });
+    return { reference, status: PaymentStatus.PAID };
   }
 
   async cancelMine(reference: string, userId: string) {
@@ -373,7 +424,11 @@ export class PaymentsService {
     return payment;
   }
 
-  private async markPaid(paymentId: string, method: PaymentMethod) {
+  private async markPaid(
+    paymentId: string,
+    method: PaymentMethod,
+    manualVerification?: { adminId: string; providerReference: string },
+  ) {
     await this.prisma.$transaction(async (transaction) => {
       const payment = await transaction.payment.findUnique({
         where: { id: paymentId },
@@ -391,7 +446,18 @@ export class PaymentsService {
       const paidAt = new Date();
       await transaction.payment.update({
         where: { id: payment.id },
-        data: { status: PaymentStatus.PAID, method, paidAt },
+        data: {
+          status: PaymentStatus.PAID,
+          method,
+          paidAt,
+          ...(manualVerification
+            ? {
+                manualVerifiedAt: paidAt,
+                manualVerifierId: manualVerification.adminId,
+                providerReference: manualVerification.providerReference,
+              }
+            : {}),
+        },
       });
 
       if (payment.object === PaymentObject.ATTESTATION) {

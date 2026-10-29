@@ -20,6 +20,8 @@ type Payment = {
   createdAt: string;
   paidAt: string | null;
   providerReference: string | null;
+  manualVerifiedAt: string | null;
+  manualVerifier: { id: string; name: string } | null;
   user: { name: string; email: string };
   course: { title: string } | null;
 };
@@ -72,13 +74,21 @@ function csvCell(value: unknown) {
 
 export default function AdminPaiementsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [payTechStatus, setPayTechStatus] = useState<PayTechStatus | null>(null);
+  const [payTechStatus, setPayTechStatus] = useState<PayTechStatus | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusError, setStatusError] = useState("");
   const [status, setStatus] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [manualPayment, setManualPayment] = useState<Payment | null>(null);
+  const [manualMethod, setManualMethod] = useState("");
+  const [providerReference, setProviderReference] = useState("");
+  const [confirmedInPayTech, setConfirmedInPayTech] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -146,8 +156,7 @@ export default function AdminPaiementsPage() {
       payments.filter((payment) => {
         const matchesStatus = status === "ALL" || payment.status === status;
         const searchable =
-          `${payment.reference} ${payment.user.name} ${payment.user.email} ${payment.course?.title ?? ""}`
-            .toLowerCase();
+          `${payment.reference} ${payment.user.name} ${payment.user.email} ${payment.course?.title ?? ""}`.toLowerCase();
         return matchesStatus && searchable.includes(search.toLowerCase());
       }),
     [payments, search, status],
@@ -195,8 +204,143 @@ export default function AdminPaiementsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const confirmPayment = async () => {
+    if (!manualPayment || !confirmedInPayTech) return;
+    setConfirming(true);
+    setActionError("");
+    try {
+      const response = await fetch(
+        `/api/admin/payments/${encodeURIComponent(manualPayment.reference)}/confirm`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            method: manualMethod,
+            providerReference: providerReference.trim(),
+            confirmedInPayTech,
+          }),
+        },
+      );
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de confirmer le paiement.";
+        throw new Error(message);
+      }
+      setManualPayment(null);
+      setProviderReference("");
+      setConfirmedInPayTech(false);
+      await refresh();
+    } catch (confirmationError) {
+      setActionError(
+        confirmationError instanceof Error
+          ? confirmationError.message
+          : "Impossible de confirmer le paiement.",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-5">
+      {manualPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-payment-title"
+            className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-xl"
+          >
+            <h2 id="confirm-payment-title" className="text-lg font-bold">
+              Confirmer le paiement dans l’administration
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Référence {manualPayment.reference} —{" "}
+              {money.format(manualPayment.amountPaid)} {manualPayment.currency}
+            </p>
+            <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+              À utiliser uniquement si le tableau de bord marchand PayTech
+              indique que cette transaction est réussie. Cette action donnera
+              immédiatement accès au cours ou à l’attestation.
+            </p>
+            <label className="mt-4 flex flex-col gap-2 text-sm font-medium">
+              Moyen utilisé
+              <select
+                value={manualMethod}
+                onChange={(event) => setManualMethod(event.target.value)}
+                className="h-11 rounded-xl border border-input bg-background px-3"
+              >
+                <option value="" disabled>
+                  Sélectionnez le moyen confirmé
+                </option>
+                <option value="WAVE">Wave</option>
+                <option value="ORANGE_MONEY">Orange Money</option>
+              </select>
+            </label>
+            <label className="mt-4 flex flex-col gap-2 text-sm font-medium">
+              Référence de la transaction PayTech
+              <Input
+                value={providerReference}
+                onChange={(event) => setProviderReference(event.target.value)}
+                maxLength={100}
+                required
+                placeholder="Référence visible dans PayTech"
+              />
+            </label>
+            <label className="mt-4 flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={confirmedInPayTech}
+                onChange={(event) =>
+                  setConfirmedInPayTech(event.target.checked)
+                }
+                className="mt-1"
+              />
+              <span>
+                J’ai vérifié dans PayTech que cette transaction est réussie et
+                que son montant correspond.
+              </span>
+            </label>
+            {actionError && (
+              <p role="alert" className="mt-3 text-sm text-accent">
+                {actionError}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setManualPayment(null);
+                  setActionError("");
+                }}
+                disabled={confirming}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => void confirmPayment()}
+                disabled={
+                  confirming ||
+                  !manualMethod ||
+                  !confirmedInPayTech ||
+                  !providerReference.trim()
+                }
+              >
+                {confirming && (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                )}
+                Confirmer le paiement
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
       <section className="rounded-2xl border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -259,7 +403,10 @@ export default function AdminPaiementsPage() {
         ) : null}
       </section>
       {error && (
-        <p role="alert" className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">
+        <p
+          role="alert"
+          className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent"
+        >
           ! {error}
         </p>
       )}
@@ -302,12 +449,16 @@ export default function AdminPaiementsPage() {
               <th className="p-3">Statut</th>
               <th className="p-3">Date</th>
               <th className="p-3">Référence</th>
+              <th className="p-3">Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                <td
+                  colSpan={8}
+                  className="p-8 text-center text-muted-foreground"
+                >
                   <LoaderCircle className="mx-auto h-5 w-5 animate-spin" />
                   <span className="mt-2 block">Chargement des paiements…</span>
                 </td>
@@ -317,26 +468,48 @@ export default function AdminPaiementsPage() {
                 <tr key={payment.id} className="border-t align-top">
                   <td className="p-3">
                     <p className="font-medium">{payment.user.name}</p>
-                    <p className="text-xs text-muted-foreground">{payment.user.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {payment.user.email}
+                    </p>
                   </td>
                   <td className="p-3">
                     <p>{objectLabels[payment.object] ?? payment.object}</p>
                     {payment.course && (
-                      <p className="text-xs text-muted-foreground">{payment.course.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {payment.course.title}
+                      </p>
                     )}
                   </td>
                   <td className="whitespace-nowrap p-3 font-semibold">
                     {money.format(payment.amountPaid)} {payment.currency}
                     {payment.discountAmount > 0 && (
                       <p className="text-xs font-normal text-muted-foreground">
-                        Référence : {money.format(payment.amountBeforePromo)} · code {payment.promoCode}
+                        Référence : {money.format(payment.amountBeforePromo)} ·
+                        code {payment.promoCode}
                       </p>
                     )}
                   </td>
                   <td className="whitespace-nowrap p-3">
-                    {payment.method === "ORANGE_MONEY" ? "Orange Money" : "Wave"}
+                    {payment.status !== "PAID"
+                      ? "À confirmer"
+                      : payment.method === "ORANGE_MONEY"
+                        ? "Orange Money"
+                        : "Wave"}
                   </td>
-                  <td className="p-3">{statusLabels[payment.status] ?? payment.status}</td>
+                  <td className="p-3">
+                    {statusLabels[payment.status] ?? payment.status}
+                    {payment.manualVerifiedAt && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Vérifié manuellement par{" "}
+                        {payment.manualVerifier?.name ?? "administration"}
+                      </p>
+                    )}
+                    {payment.manualVerifiedAt && payment.providerReference && (
+                      <p className="mt-1 break-all text-xs text-muted-foreground">
+                        Réf. PayTech : {payment.providerReference}
+                      </p>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap p-3">
                     {new Intl.DateTimeFormat("fr-FR", {
                       dateStyle: "medium",
@@ -346,11 +519,31 @@ export default function AdminPaiementsPage() {
                   <td className="max-w-40 break-all p-3 font-mono text-xs">
                     {payment.reference}
                   </td>
+                  <td className="p-3">
+                    {payment.status === "PENDING" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setManualPayment(payment);
+                          setManualMethod("");
+                          setProviderReference("");
+                          setConfirmedInPayTech(false);
+                          setActionError("");
+                        }}
+                      >
+                        Confirmer manuellement
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                <td
+                  colSpan={8}
+                  className="p-8 text-center text-muted-foreground"
+                >
                   Aucun paiement ne correspond aux filtres.
                 </td>
               </tr>
@@ -359,7 +552,8 @@ export default function AdminPaiementsPage() {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Les remboursements et la vérification manuelle ne sont pas encore pris en charge par l’API.
+        Toute confirmation manuelle exige la vérification préalable du paiement
+        dans PayTech et en conserve la trace.
       </p>
     </div>
   );
