@@ -90,4 +90,9 @@ export class AdminPaymentsController {
       body,
     );
   }
+
+  @Post('resend-receipts')
+  resendReceipts(@Req() request: AuthenticatedRequest) {
+    return this.payments.queueReceiptResend(request.user.id);
+  }
 }

@@ -44,12 +44,8 @@ export class PricingService {
       prix_atelier: Number(values.prix_atelier),
       prix_offre_emploi: Number(values.prix_offre_emploi),
       prix_sponsoring_trimestre: Number(values.prix_sponsoring_trimestre),
-      delai_rappel_fin_acces_jours: Number(
-        values.delai_rappel_fin_acces_jours,
-      ),
-      frais_paiement_pourcentage: Number(
-        values.frais_paiement_pourcentage,
-      ),
+      delai_rappel_fin_acces_jours: Number(values.delai_rappel_fin_acces_jours),
+      frais_paiement_pourcentage: Number(values.frais_paiement_pourcentage),
       devise: values.devise,
     };
   }
@@ -94,6 +90,16 @@ export class PricingService {
             oldValue: old?.value ?? null,
             newValue,
             modifiedBy: adminId,
+          },
+        });
+        await transaction.adminAuditLog.create({
+          data: {
+            actorUserId: adminId,
+            action: 'PRICING_UPDATED',
+            entity: 'PriceSetting',
+            entityId: key,
+            before: { value: old?.value ?? null },
+            after: { value: newValue },
           },
         });
       }

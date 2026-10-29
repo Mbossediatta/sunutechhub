@@ -92,18 +92,38 @@ export class ProjectsService {
     }
     const project = await this.prisma.courseProject.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true, reviewNote: true },
     });
     if (!project) throw new NotFoundException('Projet introuvable.');
 
-    return this.prisma.courseProject.update({
-      where: { id },
-      data: {
-        status: input.status,
-        reviewNote: input.reviewNote?.trim() ?? null,
-        reviewerId,
-        reviewedAt: new Date(),
-      },
+    const reviewedAt = new Date();
+    return this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.courseProject.update({
+        where: { id },
+        data: {
+          status: input.status,
+          reviewNote: input.reviewNote?.trim() ?? null,
+          reviewerId,
+          reviewedAt,
+        },
+      });
+      await transaction.adminAuditLog.create({
+        data: {
+          actorUserId: reviewerId,
+          action: 'PROJECT_REVIEWED',
+          entity: 'CourseProject',
+          entityId: id,
+          before: {
+            status: project.status,
+            reviewNote: project.reviewNote,
+          },
+          after: {
+            status: updated.status,
+            reviewNote: updated.reviewNote,
+          },
+        },
+      });
+      return updated;
     });
   }
 }

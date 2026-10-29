@@ -360,6 +360,39 @@ export class PaymentsService {
     });
   }
 
+  async queueReceiptResend(adminId: string) {
+    const sentReceipts = await this.prisma.receiptOutbox.findMany({
+      where: {
+        sentAt: { not: null },
+        payment: { status: PaymentStatus.PAID },
+      },
+      select: { id: true },
+    });
+    if (!sentReceipts.length) return { queued: 0 };
+
+    const now = new Date();
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.receiptOutbox.updateMany({
+        where: { id: { in: sentReceipts.map(({ id }) => id) } },
+        data: {
+          sentAt: null,
+          attempts: 0,
+          nextAttemptAt: now,
+          lastError: null,
+        },
+      });
+      await transaction.adminAuditLog.create({
+        data: {
+          actorUserId: adminId,
+          action: 'RECEIPTS_RESEND_QUEUED',
+          entity: 'ReceiptOutbox',
+          after: { queued: sentReceipts.length },
+        },
+      });
+    });
+    return { queued: sentReceipts.length };
+  }
+
   async confirmPaymentManually(
     reference: string,
     adminId: string,
@@ -459,6 +492,23 @@ export class PaymentsService {
             : {}),
         },
       });
+      if (manualVerification) {
+        await transaction.adminAuditLog.create({
+          data: {
+            actorUserId: manualVerification.adminId,
+            action: 'PAYMENT_CONFIRMED_MANUALLY',
+            entity: 'Payment',
+            entityId: payment.id,
+            before: { status: payment.status },
+            after: {
+              status: PaymentStatus.PAID,
+              reference: payment.reference,
+              method,
+              providerReference: manualVerification.providerReference,
+            },
+          },
+        });
+      }
 
       if (payment.object === PaymentObject.ATTESTATION) {
         if (!payment.courseId || !payment.projectId || !payment.course) {

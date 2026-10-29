@@ -48,6 +48,13 @@ L’API écoute par défaut sur `http://localhost:4000/api`. La route
 Pour les déploiements, appliquer les migrations déjà créées avec
 `npm run db:deploy`, puis exécuter `npm run db:seed`.
 
+Les routes `GET /api/admin/security/overview`, `/errors`, `/operations` et
+`/audit` sont réservées aux administrateurs et présentent les événements
+techniques et les actions d’administration. Les événements de sécurité sont
+conservés pendant 90 jours. Configurez `TRUSTED_PROXY_IPS` avec les adresses IP
+exactes des reverse proxies de confiance pour enregistrer l’adresse du visiteur;
+laissez cette variable vide si aucun proxy de confiance n’est utilisé.
+
 ## Authentification et administration
 
 - `POST /api/auth/register` crée un compte membre à partir du nom, de l’adresse

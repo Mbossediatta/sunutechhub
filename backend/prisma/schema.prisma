@@ -119,6 +119,7 @@ model User {
   createdEvents            CommunityEvent[]     @relation("EventCreator")
   createdJobs              JobOffer[]           @relation("JobCreator")
   reviewedJobs             JobOffer[]           @relation("JobReviewer")
+  auditLogs                AdminAuditLog[]
 }
 
 model Course {
@@ -483,4 +484,39 @@ model JobOffer {
   reviewedBy   User?     @relation("JobReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+}
+
+model SecurityEvent {
+  id            String   @id @default(cuid())
+  eventType     String
+  severity      String
+  sourceIp      String?
+  userAgent     String?
+  method        String
+  path          String
+  statusCode    Int
+  reason        String?
+  targetAccount String?
+  userId        String?
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+  @@index([sourceIp, createdAt])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }

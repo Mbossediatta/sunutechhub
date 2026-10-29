@@ -18,6 +18,7 @@ import { ProjectsModule } from './projects/projects.module.js';
 import { PromotionsModule } from './promotions/promotions.module.js';
 import { ReceiptsModule } from './receipts/receipts.module.js';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module.js';
+import { SecurityEventsModule } from './security/security-events.module.js';
 
 function validateEnvironment(environment: Record<string, unknown>) {
   const jwtSecret = environment.JWT_SECRET;
@@ -50,6 +51,7 @@ function validateEnvironment(environment: Record<string, unknown>) {
     AttestationsModule,
     AdminModule,
     ReceiptsModule,
+    SecurityEventsModule,
   ],
   controllers: [AppController],
   providers: [

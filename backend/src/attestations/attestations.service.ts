@@ -96,18 +96,36 @@ export class AttestationsService {
   async revoke(number: string, adminId: string, input: RevokeAttestationDto) {
     const attestation = await this.prisma.attestation.findUnique({
       where: { number },
+      select: { status: true },
     });
     if (!attestation)
       throw new NotFoundException('Attestation de réussite introuvable.');
-    return this.prisma.attestation.update({
-      where: { number },
-      data: {
-        status: AttestationStatus.REVOKED,
-        revokedAt: new Date(),
-        revokedById: adminId,
-        revocationReason: input.reason.trim(),
-      },
-      select: { number: true, status: true, revokedAt: true },
+    return this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.attestation.update({
+        where: { number },
+        data: {
+          status: AttestationStatus.REVOKED,
+          revokedAt: new Date(),
+          revokedById: adminId,
+          revocationReason: input.reason.trim(),
+        },
+        select: { number: true, status: true, revokedAt: true },
+      });
+      await transaction.adminAuditLog.create({
+        data: {
+          actorUserId: adminId,
+          action: 'ATTESTATION_REVOKED',
+          entity: 'Attestation',
+          entityId: number,
+          before: { status: attestation.status },
+          after: {
+            status: updated.status,
+            revokedAt: updated.revokedAt?.toISOString() ?? null,
+            reason: input.reason.trim(),
+          },
+        },
+      });
+      return updated;
     });
   }
 

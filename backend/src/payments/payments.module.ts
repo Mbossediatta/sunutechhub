@@ -17,6 +17,6 @@ import { PayTechService } from './paytech.service.js';
     AdminPaymentsController,
   ],
   providers: [PaymentsService, PayTechService],
-  exports: [PaymentsService],
+  exports: [PaymentsService, PayTechService],
 })
 export class PaymentsModule {}
