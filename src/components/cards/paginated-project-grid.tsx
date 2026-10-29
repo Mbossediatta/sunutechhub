@@ -8,8 +8,10 @@ type Project = {
   id: string;
   title: string;
   description: string;
+  imageUrls: string[];
+  technologies: string[];
+  _count: { likes: number; comments: number };
   user: { name: string; city: string | null };
-  course: { title: string; subjects: string[] };
 };
 
 export function PaginatedProjectGrid({ projects }: { projects: Project[] }) {
@@ -24,9 +26,11 @@ export function PaginatedProjectGrid({ projects }: { projects: Project[] }) {
             id={project.id}
             title={project.title}
             description={project.description}
+            imageUrl={project.imageUrls[0] ?? null}
             author={project.user}
-            courseTitle={project.course.title}
-            technologies={project.course.subjects}
+            technologies={project.technologies}
+            likeCount={project._count.likes}
+            commentCount={project._count.comments}
           />
         ))}
       </div>

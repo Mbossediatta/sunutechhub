@@ -1,55 +1,248 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Upload, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ImagePlus,
+  LoaderCircle,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const TECH_SUGGESTIONS = ["React", "Next.js", "Node.js", "Flutter", "Python", "PostgreSQL", "Firebase", "MongoDB", "Django", "Vue.js", "TypeScript", "Tailwind CSS"];
-
+const TECH_SUGGESTIONS = [
+  "React",
+  "Next.js",
+  "Node.js",
+  "Flutter",
+  "Python",
+  "PostgreSQL",
+  "Firebase",
+  "MongoDB",
+  "Django",
+  "Vue.js",
+  "TypeScript",
+  "Tailwind CSS",
+];
+const MAX_SCREENSHOTS = 5;
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 type Step = 1 | 2 | 3;
+type AuthState = "checking" | "authenticated" | "guest";
+
+function responseMessage(result: unknown, fallback: string) {
+  if (result && typeof result === "object" && "message" in result) {
+    const message = result.message;
+    if (typeof message === "string") return message;
+    if (
+      Array.isArray(message) &&
+      message.every((item) => typeof item === "string")
+    ) {
+      return message.join(" ");
+    }
+  }
+  return fallback;
+}
+
+async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
+    cache: "no-store",
+  });
+  const result: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(responseMessage(result, "La requête n’a pas abouti."));
+  }
+  return result as T;
+}
 
 export default function NouveauProjetPage() {
-  const [step,    setStep]   = useState<Step>(1);
-  const [title,   setTitle]  = useState("");
-  const [desc,    setDesc]   = useState("");
-  const [url,     setUrl]    = useState("");
-  const [techs,   setTechs]  = useState<string[]>([]);
-  const [custom,  setCustom] = useState("");
-  const [loading, setLoad]   = useState(false);
-  const [done,    setDone]   = useState(false);
+  const [step, setStep] = useState<Step>(1);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [link, setLink] = useState("");
+  const [technologies, setTechnologies] = useState<string[]>([]);
+  const [customTechnology, setCustomTechnology] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [authState, setAuthState] = useState<AuthState>("checking");
+  const [error, setError] = useState("");
+  const [publishedProjectId, setPublishedProjectId] = useState("");
 
-  const toggleTech = (t: string) =>
-    setTechs((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => {
+        if (active) setAuthState(response.ok ? "authenticated" : "guest");
+      })
+      .catch(() => {
+        if (active) setAuthState("guest");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const addCustom = () => {
-    if (custom.trim() && !techs.includes(custom.trim())) {
-      setTechs((p) => [...p, custom.trim()]);
-      setCustom("");
+  const toggleTechnology = (technology: string) => {
+    setTechnologies((current) =>
+      current.includes(technology)
+        ? current.filter((item) => item !== technology)
+        : current.length < 20
+          ? [...current, technology]
+          : current,
+    );
+  };
+
+  const addCustomTechnology = () => {
+    const technology = customTechnology.trim();
+    if (
+      technology &&
+      technology.length <= 40 &&
+      !technologies.includes(technology) &&
+      technologies.length < 20
+    ) {
+      setTechnologies((current) => [...current, technology]);
+      setCustomTechnology("");
     }
   };
 
-  const handlePublish = async () => {
-    setLoad(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setLoad(false); setDone(true);
+  const selectImages = (files: FileList | null) => {
+    if (!files) return;
+    const selected = Array.from(files);
+    if (images.length + selected.length > MAX_SCREENSHOTS) {
+      setError(`Tu peux ajouter jusqu’à ${MAX_SCREENSHOTS} captures.`);
+      return;
+    }
+    const invalid = selected.find(
+      (file) =>
+        !ALLOWED_IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_SIZE,
+    );
+    if (invalid) {
+      setError(
+        "Chaque capture doit être en JPG, PNG ou WebP et faire 2 Mo maximum.",
+      );
+      return;
+    }
+    setError("");
+    setImages((current) => [...current, ...selected]);
   };
 
-  if (done) {
+  const uploadImages = async () => {
+    const paths: string[] = [];
+    for (const file of images) {
+      const upload = await jsonRequest<{
+        path: string;
+        signedUrl: string;
+        contentType: string;
+      }>("/api/community/showcase-project-images/upload-url", {
+        method: "POST",
+        body: JSON.stringify({
+          filename: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+      const uploaded = await fetch(upload.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": upload.contentType },
+        body: file,
+      });
+      if (!uploaded.ok)
+        throw new Error(`Impossible d’envoyer la capture « ${file.name} ».`);
+      const verified = await jsonRequest<{ path: string }>(
+        "/api/community/showcase-project-images/verify-upload",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            path: upload.path,
+            size: file.size,
+            contentType: file.type,
+          }),
+        },
+      );
+      paths.push(verified.path);
+    }
+    return paths;
+  };
+
+  const publish = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const imagePaths = await uploadImages();
+      const project = await jsonRequest<{ id: string }>(
+        "/api/community/showcase-projects",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title,
+            description,
+            link: link.trim() || undefined,
+            technologies,
+            imagePaths,
+          }),
+        },
+      );
+      setPublishedProjectId(project.id);
+    } catch (publishError) {
+      setError(
+        publishError instanceof Error
+          ? publishError.message
+          : "Impossible de partager le projet.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authState === "checking") {
+    return (
+      <div className="mx-auto flex max-w-xl justify-center px-4 py-20">
+        <LoaderCircle className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (authState === "guest") {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
-        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-          <CheckCircle2 className="h-10 w-10 text-primary" />
-        </div>
-        <h1 className="font-bricolage text-2xl font-bold mb-2">Projet publié !</h1>
-        <p className="text-muted-foreground mb-8">La communauté peut maintenant voir et commenter ton projet.</p>
-        <div className="flex gap-3 justify-center">
-          <Button asChild><Link href="/projets">Voir tous les projets</Link></Button>
-          <Button variant="secondary" onClick={() => { setStep(1); setTitle(""); setDesc(""); setUrl(""); setTechs([]); setDone(false); }}>
-            Publier un autre projet
+        <h1 className="font-bricolage text-2xl font-bold">
+          Connecte-toi pour partager ton projet
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          La présentation d’un projet est réservée aux membres.
+        </p>
+        <Button asChild className="mt-6">
+          <Link href="/connexion?redirect=/projets/nouveau">Se connecter</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (publishedProjectId) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <CheckCircle2 className="mx-auto mb-5 h-16 w-16 text-primary" />
+        <h1 className="font-bricolage text-2xl font-bold">Projet partagé !</h1>
+        <p className="mb-8 mt-2 text-muted-foreground">
+          Il est maintenant visible par la communauté. Les membres peuvent
+          l’aimer et le commenter.
+        </p>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild>
+            <Link href={`/projets/${publishedProjectId}`}>Voir mon projet</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/projets">Tous les projets</Link>
           </Button>
         </div>
       </div>
@@ -57,179 +250,300 @@ export default function NouveauProjetPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 sm:px-6 py-10">
-      <Link href="/projets" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 group transition-colors">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-        Retour aux projets
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <Link
+        href="/projets"
+        className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Retour aux projets
       </Link>
-
-      {/* En-tête */}
       <div className="mb-8">
-        <p className="text-sm font-semibold text-primary mb-1">Communauté</p>
-        <h1 className="font-bricolage text-3xl font-bold mb-2">Partager mon projet</h1>
-        <p className="text-muted-foreground">Montre ce que tu as construit. La communauté adorera.</p>
+        <p className="mb-1 text-sm font-semibold text-primary">Communauté</p>
+        <h1 className="font-bricolage text-3xl font-bold">
+          Partager mon projet
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Présente un projet personnel. Il sera visible tout de suite et chacun
+          pourra réagir.
+        </p>
       </div>
 
-      {/* Indicateur d'étape */}
-      <div className="flex items-center gap-3 mb-8">
-        {[
-          { n: 1, label: "Informations" },
-          { n: 2, label: "Captures" },
-          { n: 3, label: "Publication" },
-        ].map((s, i) => (
-          <div key={s.n} className="flex items-center gap-2 flex-1">
-            <div className={cn(
-              "h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all",
-              step > s.n ? "bg-primary text-primary-foreground" :
-              step === s.n ? "bg-primary text-primary-foreground" :
-              "bg-muted text-muted-foreground"
-            )}>
-              {step > s.n ? <CheckCircle2 className="h-4 w-4" /> : s.n}
-            </div>
-            <span className={cn("text-xs font-medium hidden sm:block", step >= s.n ? "text-foreground" : "text-muted-foreground")}>
-              {s.label}
-            </span>
-            {i < 2 && <div className={cn("flex-1 h-0.5 rounded-full", step > s.n ? "bg-primary" : "bg-border")} />}
-          </div>
-        ))}
+      <div className="mb-8 flex items-center gap-3">
+        {(["Informations", "Captures", "Publication"] as const).map(
+          (label, index) => {
+            const number = (index + 1) as Step;
+            return (
+              <div key={label} className="flex flex-1 items-center gap-2">
+                <span
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                    step >= number
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {step > number ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    number
+                  )}
+                </span>
+                <span
+                  className={cn(
+                    "hidden text-xs font-medium sm:block",
+                    step >= number
+                      ? "text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {label}
+                </span>
+                {index < 2 && (
+                  <span className="h-0.5 flex-1 rounded-full bg-border" />
+                )}
+              </div>
+            );
+          },
+        )}
       </div>
 
-      {/* ── ÉTAPE 1 ── */}
+      {error && (
+        <p
+          role="alert"
+          className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+
       {step === 1 && (
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold">Nom du projet <span className="text-destructive">*</span></label>
-            <Input placeholder="Ex: SenShop — E-commerce pour artisans" value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl h-11" />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold">Description <span className="text-destructive">*</span></label>
-            <textarea
-              placeholder="Décris ton projet en 2-3 phrases. Quel problème résout-il ? Pour qui ?"
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              rows={4}
-              className="w-full rounded-xl border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-all"
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            Nom du projet *
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={180}
+              placeholder="Ex. SenShop — boutique pour artisans"
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold">Technologies utilisées</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {TECH_SUGGESTIONS.map((t) => (
-                <button key={t} type="button" onClick={() => toggleTech(t)} aria-pressed={techs.includes(t)}
-                  className={cn("px-3 py-1.5 rounded-full text-sm font-medium border transition-all",
-                    techs.includes(t) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary hover:text-primary bg-background"
-                  )}>
-                  {t}
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            Description *
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={5000}
+              minLength={10}
+              rows={5}
+              placeholder="Quel problème ton projet résout-il ? Comment fonctionne-t-il ?"
+              className="w-full resize-y rounded-xl border bg-background px-4 py-3 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-semibold">
+              Technologies utilisées
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {TECH_SUGGESTIONS.map((technology) => (
+                <button
+                  key={technology}
+                  type="button"
+                  onClick={() => toggleTechnology(technology)}
+                  aria-pressed={technologies.includes(technology)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    technologies.includes(technology)
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:border-primary hover:text-primary",
+                  )}
+                >
+                  {technology}
                 </button>
               ))}
             </div>
             <div className="flex gap-2">
-              <Input placeholder="Autre technologie…" value={custom} onChange={(e) => setCustom(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustom())}
-                className="rounded-xl h-9 text-sm flex-1" />
-              <Button size="sm" variant="secondary" onClick={addCustom} className="rounded-xl shrink-0">Ajouter</Button>
+              <Input
+                value={customTechnology}
+                onChange={(event) => setCustomTechnology(event.target.value)}
+                maxLength={40}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addCustomTechnology();
+                  }
+                }}
+                placeholder="Autre technologie…"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addCustomTechnology}
+              >
+                Ajouter
+              </Button>
             </div>
-            {techs.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {techs.map((t) => <Badge key={t} variant="default" className="gap-1 text-xs">{t}</Badge>)}
+            {technologies.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {technologies.map((technology) => (
+                  <Badge key={technology} variant="outline">
+                    {technology}
+                  </Badge>
+                ))}
               </div>
             )}
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold">Lien démo ou GitHub</label>
-            <Input placeholder="https://github.com/ton-repo ou https://ton-projet.vercel.app" value={url} onChange={(e) => setUrl(e.target.value)} className="rounded-xl h-11" />
-          </div>
-
-          <div className="flex justify-end pt-2 border-t">
-            <Button className="rounded-xl gap-2" onClick={() => setStep(2)} disabled={!title.trim() || !desc.trim()}>
-              Suivant <ArrowRight className="h-4 w-4" />
+          <label className="flex flex-col gap-1.5 text-sm font-semibold">
+            Lien de démonstration ou GitHub (facultatif)
+            <Input
+              type="url"
+              value={link}
+              onChange={(event) => setLink(event.target.value)}
+              maxLength={2048}
+              placeholder="https://github.com/ton-projet"
+            />
+          </label>
+          <div className="flex justify-end border-t pt-4">
+            <Button
+              onClick={() => setStep(2)}
+              disabled={
+                title.trim().length < 2 || description.trim().length < 10
+              }
+            >
+              Suivant <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── ÉTAPE 2 ── */}
       {step === 2 && (
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold">Captures d&apos;écran</label>
-            <p className="text-xs text-muted-foreground">Ajoute 1 à 5 captures pour montrer ton projet. PNG ou JPG, max 2 Mo chacune.</p>
-            <div className="border-2 border-dashed border-border rounded-2xl p-10 text-center hover:border-primary transition-colors cursor-pointer">
-              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm font-medium text-foreground mb-1">Glisse tes captures ici</p>
-              <p className="text-xs text-muted-foreground">ou clique pour sélectionner</p>
-            </div>
+          <div>
+            <h2 className="font-semibold">Captures d’écran</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ajoute jusqu’à cinq images JPG, PNG ou WebP (2 Mo maximum
+              chacune).
+            </p>
+            <label className="mt-4 flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed p-8 text-center transition-colors hover:border-primary">
+              <ImagePlus className="mb-3 h-8 w-8 text-primary" />
+              <span className="text-sm font-semibold">
+                Choisir des captures
+              </span>
+              <span className="mt-1 text-xs text-muted-foreground">
+                {images.length}/{MAX_SCREENSHOTS} sélectionnée(s)
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="sr-only"
+                onChange={(event) => {
+                  selectImages(event.target.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+            {images.length > 0 && (
+              <ul className="mt-4 flex flex-col gap-2">
+                {images.map((image, index) => (
+                  <li
+                    key={`${image.name}-${image.lastModified}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border p-3 text-sm"
+                  >
+                    <span className="truncate">
+                      {image.name}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        ({(image.size / 1024 / 1024).toFixed(1)} Mo)
+                      </span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Retirer ${image.name}`}
+                      onClick={() =>
+                        setImages((current) =>
+                          current.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-
-          <div className="rounded-xl bg-muted/50 border p-4 text-sm">
-            <p className="font-semibold mb-1">💡 Conseils pour de bonnes captures</p>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Montre les pages principales de ton app</li>
-              <li>• Utilise des données réalistes (pas des lorem ipsum)</li>
-              <li>• Capture les deux versions mobile et desktop si possible</li>
-            </ul>
+          <div className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
+            Les captures rendent ton projet plus facile à découvrir. Évite d’y
+            afficher des mots de passe ou des informations personnelles.
           </div>
-
-          <div className="flex items-center justify-between pt-2 border-t">
-            <Button variant="secondary" className="rounded-xl" onClick={() => setStep(1)}>
-              <ArrowLeft className="h-4 w-4" /> Retour
+          <div className="flex items-center justify-between border-t pt-4">
+            <Button variant="outline" onClick={() => setStep(1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour
             </Button>
-            <Button className="rounded-xl gap-2" onClick={() => setStep(3)}>
-              Suivant <ArrowRight className="h-4 w-4" />
+            <Button onClick={() => setStep(3)}>
+              Suivant <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── ÉTAPE 3 ── */}
       {step === 3 && (
         <div className="flex flex-col gap-6">
-          <div className="rounded-2xl border bg-card p-6">
-            <h3 className="font-bricolage font-bold text-lg mb-4">Récapitulatif</h3>
-            <div className="flex flex-col gap-3 text-sm">
-              <div className="flex items-start gap-2">
-                <span className="text-muted-foreground w-24 shrink-0">Projet</span>
-                <span className="font-medium">{title}</span>
+          <div className="rounded-2xl border bg-card p-5">
+            <h2 className="mb-4 font-bricolage text-lg font-bold">
+              Récapitulatif
+            </h2>
+            <dl className="flex flex-col gap-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Projet</dt>
+                <dd className="font-semibold">{title}</dd>
               </div>
-              <div className="flex items-start gap-2">
-                <span className="text-muted-foreground w-24 shrink-0">Description</span>
-                <span className="text-muted-foreground line-clamp-2">{desc}</span>
+              <div>
+                <dt className="text-muted-foreground">Description</dt>
+                <dd className="line-clamp-3">{description}</dd>
               </div>
-              <div className="flex items-start gap-2">
-                <span className="text-muted-foreground w-24 shrink-0">Technologies</span>
-                <div className="flex flex-wrap gap-1">
-                  {techs.length > 0
-                    ? techs.map((t) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)
-                    : <span className="text-muted-foreground">Aucune</span>}
-                </div>
+              <div>
+                <dt className="text-muted-foreground">Technologies</dt>
+                <dd>
+                  {technologies.length
+                    ? technologies.join(", ")
+                    : "Non précisées"}
+                </dd>
               </div>
-              {url && (
-                <div className="flex items-start gap-2">
-                  <span className="text-muted-foreground w-24 shrink-0">Lien</span>
-                  <span className="text-primary text-xs truncate">{url}</span>
+              <div>
+                <dt className="text-muted-foreground">Captures</dt>
+                <dd>{images.length || "Aucune"}</dd>
+              </div>
+              {link && (
+                <div>
+                  <dt className="text-muted-foreground">Lien</dt>
+                  <dd className="break-all text-primary">{link}</dd>
                 </div>
               )}
-            </div>
+            </dl>
           </div>
-
-          <div className="rounded-xl bg-muted/50 border p-4 text-sm">
-            <p className="text-xs text-muted-foreground">
-              En publiant, tu confirmes que ce projet est le tien ou que tu as les droits de le partager.
-              Il sera visible par toute la communauté et indexé dans les recherches.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t">
-            <Button variant="secondary" className="rounded-xl" onClick={() => setStep(2)}>
-              <ArrowLeft className="h-4 w-4" /> Retour
+          <p className="rounded-xl border bg-muted/50 p-4 text-sm text-muted-foreground">
+            En partageant ce projet, tu confirmes que tu as le droit de publier
+            son contenu. Il sera visible immédiatement par la communauté.
+          </p>
+          <div className="flex items-center justify-between border-t pt-4">
+            <Button variant="outline" onClick={() => setStep(2)}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour
             </Button>
-            <Button className="rounded-xl gap-2 shadow-md shadow-primary/20" onClick={handlePublish} disabled={loading}>
-              {loading
-                ? <><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Publication…</>
-                : <><CheckCircle2 className="h-4 w-4" />Publier le projet</>}
+            <Button
+              onClick={() => void publish()}
+              disabled={loading}
+              className="gap-2"
+            >
+              {loading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {loading ? "Publication…" : "Partager le projet"}
             </Button>
           </div>
         </div>

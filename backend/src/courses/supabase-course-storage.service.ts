@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 const MAX_PDF_SIZE = 20 * 1024 * 1024;
 const MAX_BANNER_SIZE = 5 * 1024 * 1024;
+const MAX_PROJECT_IMAGE_SIZE = 2 * 1024 * 1024;
 const MAX_TIP_NARRATION_SIZE = 50 * 1024 * 1024;
 const STORAGE_PREFIX = 'storage://';
 
@@ -85,6 +86,132 @@ export class SupabaseCourseStorageService {
       path,
     );
     return { ...upload, contentType };
+  }
+
+  async createSignedShowcaseImageUpload(
+    filename: string,
+    size: number,
+    contentType: string,
+  ) {
+    const extensionByType: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+    };
+    const extension = extensionByType[contentType];
+    if (
+      !extension ||
+      !filename.toLowerCase().endsWith(extension) ||
+      !Number.isSafeInteger(size) ||
+      size < 13 ||
+      size > MAX_PROJECT_IMAGE_SIZE
+    ) {
+      throw new BadRequestException(
+        'Choisis une image JPG, PNG ou WebP de 2 Mo maximum.',
+      );
+    }
+
+    const safeName = filename
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9._-]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .slice(-120)
+      .replace(/\.[^.]*$/, '');
+    const path = `project-images/${randomUUID()}-${safeName || 'capture'}${extension}`;
+    const { baseUrl, serviceKey } = this.storageConfig();
+    const bucket = this.projectImageBucket();
+    return {
+      ...(await this.createSignedUploadForPath(
+        baseUrl,
+        bucket,
+        serviceKey,
+        path,
+      )),
+      contentType,
+    };
+  }
+
+  async verifyUploadedShowcaseImage(
+    path: string,
+    expectedSize: number,
+    contentType: string,
+  ) {
+    const extensionByType: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+    };
+    const extension = extensionByType[contentType];
+    const objectPath = this.requireShowcaseImagePath(path);
+    if (
+      !extension ||
+      !objectPath.toLowerCase().endsWith(extension) ||
+      !Number.isSafeInteger(expectedSize) ||
+      expectedSize < 13 ||
+      expectedSize > MAX_PROJECT_IMAGE_SIZE
+    ) {
+      throw new BadRequestException(
+        'La capture doit être une image JPG, PNG ou WebP de 2 Mo maximum.',
+      );
+    }
+
+    const { baseUrl, serviceKey } = this.storageConfig();
+    const bucket = this.projectImageBucket();
+    const response = await fetch(
+      `${baseUrl}/storage/v1/object/${this.encodePath(bucket)}/${this.encodePath(objectPath)}`,
+      {
+        headers: this.headers(serviceKey, { Range: 'bytes=0-11' }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      },
+    ).catch(() => null);
+    if (!response?.ok) {
+      throw new BadGatewayException(
+        'Impossible de vérifier la capture téléversée dans Supabase Storage.',
+      );
+    }
+
+    const signature = new Uint8Array(await response.arrayBuffer());
+    const contentRange = response.headers.get('content-range');
+    const totalSize = contentRange?.match(/\/(\d+)$/)?.[1];
+    const validSignature =
+      contentType === 'image/jpeg'
+        ? signature[0] === 0xff &&
+          signature[1] === 0xd8 &&
+          signature[2] === 0xff
+        : contentType === 'image/png'
+          ? [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every(
+              (byte, index) => signature[index] === byte,
+            )
+          : signature[0] === 0x52 &&
+            signature[1] === 0x49 &&
+            signature[2] === 0x46 &&
+            signature[3] === 0x46 &&
+            signature[8] === 0x57 &&
+            signature[9] === 0x45 &&
+            signature[10] === 0x42 &&
+            signature[11] === 0x50;
+    if (
+      !validSignature ||
+      response.headers.get('content-type')?.split(';')[0] !== contentType ||
+      !totalSize ||
+      Number(totalSize) !== expectedSize
+    ) {
+      throw new BadRequestException(
+        'Le fichier envoyé n’est pas une image valide ou sa taille a changé.',
+      );
+    }
+    return `${STORAGE_PREFIX}${objectPath}`;
+  }
+
+  getPublicShowcaseImageUrl(path: string) {
+    const objectPath = this.requireShowcaseImagePath(path);
+    const { baseUrl } = this.storageConfig();
+    return new URL(
+      `/storage/v1/object/public/${this.encodePath(this.projectImageBucket())}/${this.encodePath(objectPath)}`,
+      baseUrl,
+    ).toString();
   }
 
   async createSignedTipNarrationUpload(
@@ -569,6 +696,33 @@ export class SupabaseCourseStorageService {
       throw new BadRequestException('Le chemin de la bannière est invalide.');
     }
     return objectPath;
+  }
+
+  private requireShowcaseImagePath(path: string) {
+    const objectPath = path.startsWith(STORAGE_PREFIX)
+      ? path.slice(STORAGE_PREFIX.length)
+      : path;
+    if (
+      !/^project-images\/[A-Za-z0-9-]+-[A-Za-z0-9._-]+\.(jpg|png|webp)$/i.test(
+        objectPath,
+      )
+    ) {
+      throw new BadRequestException('Le chemin de la capture est invalide.');
+    }
+    return objectPath;
+  }
+
+  private projectImageBucket() {
+    const bucket = this.config.get<string>(
+      'SUPABASE_COURSE_BANNERS_BUCKET',
+      'course-banners',
+    );
+    if (!bucket) {
+      throw new ServiceUnavailableException(
+        'Le stockage des captures de projets n’est pas configuré.',
+      );
+    }
+    return bucket;
   }
 
   private storageConfig() {

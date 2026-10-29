@@ -109,6 +109,56 @@ describe('SupabaseCourseStorageService', () => {
     );
   });
 
+  it('creates signed uploads for project screenshots in the public image bucket', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          url: '/object/upload/sign/course-banners/project-images/capture.png?token=upload-token',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await storage.createSignedShowcaseImageUpload(
+      'capture.png',
+      120_000,
+      'image/png',
+    );
+
+    expect(result.path).toMatch(/^project-images\/[0-9a-f-]+-capture\.png$/i);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/storage/v1/object/upload/sign/course-banners/project-images/',
+      ),
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('rejects invalid or oversized project screenshots before contacting storage', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      storage.createSignedShowcaseImageUpload(
+        'capture.svg',
+        500,
+        'image/svg+xml',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      storage.createSignedShowcaseImageUpload(
+        'capture.png',
+        3 * 1024 * 1024,
+        'image/png',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['audio.mp3', 'audio/mpeg', '.mp3'],
     ['video.mp4', 'video/mp4', '.mp4'],
