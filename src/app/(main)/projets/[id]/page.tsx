@@ -52,8 +52,8 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
           <div className="mb-3 flex flex-wrap gap-2">
             {project.course.subjects.map((subject) => <Badge key={subject} variant="outline">{subject}</Badge>)}
           </div>
-          <h1 className="mb-3 font-bricolage text-2xl font-bold md:text-3xl">{project.title}</h1>
-          <p className="mb-8 whitespace-pre-wrap leading-relaxed text-muted-foreground">{project.description}</p>
+          <h1 className="mb-3 break-words font-bricolage text-2xl font-bold md:text-3xl">{project.title}</h1>
+          <p className="mb-8 break-words whitespace-pre-wrap leading-relaxed text-muted-foreground">{project.description}</p>
           <Card>
             <CardContent className="p-5">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">Projet réalisé dans le cadre du cours</p>

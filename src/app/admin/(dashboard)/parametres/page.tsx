@@ -36,6 +36,7 @@ type Announcement = {
   link: string | null;
   published: boolean;
   updatedAt: string;
+  newsletterQueued?: number;
 };
 
 type AdminSettingsResponse = {
@@ -236,7 +237,11 @@ export default function AdminParametresPage() {
       setAnnouncements((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
-      setNotice(updated.published ? "Annonce publiée." : "Annonce masquée.");
+      setNotice(
+        updated.published
+          ? `Annonce publiée. ${updated.newsletterQueued ?? 0} e-mail(s) ajouté(s) à la file des abonnés.`
+          : "Annonce masquée.",
+      );
     } catch (toggleError) {
       setError(errorMessage(toggleError, "Impossible de modifier la publication."));
     } finally {

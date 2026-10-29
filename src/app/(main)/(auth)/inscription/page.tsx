@@ -41,6 +41,7 @@ export default function InscriptionPage() {
   const [password, setPass] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [sel, setSel] = useState<string[]>([]);
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [welcomeEmailSent, setWelcomeEmailSent] = useState(false);
   const [errors, setErrors] = useState<{
@@ -99,6 +100,7 @@ export default function InscriptionPage() {
         email: email.trim(),
         password,
         interests: sel,
+        newsletterSubscribed,
       });
       setWelcomeEmailSent(result.welcomeEmailSent === true);
       setStep(3);
@@ -179,10 +181,10 @@ export default function InscriptionPage() {
       </div>
 
       {/* ── Panneau droit — formulaire ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10 sm:px-8 lg:py-12 bg-background">
+      <div className="flex-1 flex flex-col items-center justify-start px-4 py-6 sm:justify-center sm:px-8 sm:py-10 lg:py-12 bg-background">
         <div className="w-full max-w-[400px]">
           {/* Logo mobile */}
-          <div className="flex lg:hidden justify-center mb-6">
+          <div className="flex lg:hidden justify-center mb-4 sm:mb-6">
             <Link href="/">
               <Image
                 src="/logo-sunutech.png"
@@ -190,7 +192,7 @@ export default function InscriptionPage() {
                 width={220}
                 height={55}
                 priority
-                className="h-12 w-auto rounded-lg bg-white object-contain"
+                className="h-10 w-auto rounded-lg bg-white object-contain sm:h-12"
               />
             </Link>
           </div>
@@ -273,7 +275,6 @@ export default function InscriptionPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     autoComplete="name"
-                    autoFocus
                     className="rounded-xl h-11"
                     aria-invalid={!!errors.name}
                     required
@@ -420,6 +421,22 @@ export default function InscriptionPage() {
                   </span>
                 )}
               </div>
+
+              <label className="mb-5 flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newsletterSubscribed}
+                  onChange={(event) => setNewsletterSubscribed(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="font-semibold">Recevoir la newsletter Sunu Tech Hub</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Recevoir par e-mail les annonces et actualités publiées. Tu
+                    peux te désabonner à tout moment. Cette option est facultative.
+                  </span>
+                </span>
+              </label>
 
               <Button
                 size="lg"

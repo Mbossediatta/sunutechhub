@@ -70,7 +70,7 @@ export default function CoursPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <header className="mb-7">
-        <h1 className="font-bricolage text-3xl font-bold">Cours</h1>
+        <h1 className="font-bricolage text-2xl font-bold sm:text-3xl">Cours</h1>
         <p className="mt-1 text-muted-foreground">{courses.length} cours disponibles</p>
       </header>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -102,12 +102,12 @@ export default function CoursPage() {
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></span>
                   <Badge variant={course.isFree ? "secondary" : "outline"}>{course.isFree ? "Gratuit" : "Payant"}</Badge>
                 </div>
-                <h2 className="font-bricolage text-lg font-bold">{course.title}</h2>
+                <h2 className="break-words font-bricolage text-lg font-bold">{course.title}</h2>
                 <p className="mt-2 line-clamp-3 flex-1 text-sm text-muted-foreground">{course.description}</p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {course.subjects.map((subject) => <Badge key={subject} variant="outline" className="text-[10px]">{subject}</Badge>)}
                 </div>
-                <p className="mt-4 text-xs text-muted-foreground">{course.level} · {course.duration || "Durée variable"} · {course.lessons} leçons · {course.language}</p>
+                <p className="mt-4 break-words text-xs text-muted-foreground">{course.level} · {course.duration || "Durée variable"} · {course.lessons} leçons · {course.language}</p>
                 {!course.isFree && <p className="mt-3 text-sm font-semibold text-primary">{new Intl.NumberFormat("fr-FR").format(course.prices.base)} {course.prices.currency} · version de base</p>}
                 <Link href={`/cours/${course.id}`} className="mt-4 inline-flex justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
                   Découvrir le cours

@@ -33,7 +33,7 @@ export function ProjectCard({ id, title, description, author, courseTitle, techn
         </Link>
 
         <p className="text-xs text-muted-foreground line-clamp-2 flex-1 leading-relaxed">{description}</p>
-        <p className="text-xs font-medium text-primary">{courseTitle}</p>
+        <p className="break-words text-xs font-medium text-primary">{courseTitle}</p>
 
         <div className="flex flex-wrap gap-1">
           {technologies.map((t) => (

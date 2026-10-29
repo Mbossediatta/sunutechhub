@@ -39,6 +39,8 @@ export class AuthService {
         email,
         passwordHash: await hash(input.password, 12),
         interests: input.interests ?? [],
+        newsletterSubscribed: input.newsletterSubscribed ?? false,
+        newsletterSubscribedAt: input.newsletterSubscribed ? new Date() : null,
       },
       select: { id: true, name: true, email: true, role: true },
     });
@@ -80,6 +82,7 @@ export class AuthService {
         city: true,
         bio: true,
         interests: true,
+        newsletterSubscribed: true,
         createdAt: true,
         registrations: {
           include: { course: { select: { id: true, title: true, isFree: true } } },
@@ -97,6 +100,13 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, input: UpdateProfileDto) {
+    const currentSubscription =
+      input.newsletterSubscribed === undefined
+        ? null
+        : await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { newsletterSubscribed: true },
+          });
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -113,6 +123,16 @@ export class AuthService {
           input.interests === undefined
             ? undefined
             : [...new Set(input.interests.map((interest) => interest.trim()).filter(Boolean))],
+        newsletterSubscribed: input.newsletterSubscribed,
+        newsletterSubscribedAt:
+          input.newsletterSubscribed === undefined
+            ? undefined
+            : input.newsletterSubscribed &&
+                !currentSubscription?.newsletterSubscribed
+              ? new Date()
+              : input.newsletterSubscribed
+                ? undefined
+                : null,
       },
     });
     return this.getProfile(userId);

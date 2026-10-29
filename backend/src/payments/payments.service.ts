@@ -306,6 +306,36 @@ export class PaymentsService {
     return { received: true };
   }
 
+  async getPaymentReturn(
+    reference: string,
+    expiresAt: number,
+    token: string,
+  ) {
+    if (
+      !reference ||
+      !this.payTech.verifyPaymentReturnToken(reference, expiresAt, token)
+    ) {
+      throw new UnauthorizedException(
+        'Le lien de vérification du paiement est invalide ou expiré.',
+      );
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { reference },
+      select: {
+        reference: true,
+        status: true,
+        amountPaid: true,
+        currency: true,
+        course: { select: { id: true, title: true } },
+      },
+    });
+    if (!payment) {
+      throw new NotFoundException('Paiement correspondant introuvable.');
+    }
+    return payment;
+  }
+
   listMine(userId: string) {
     return this.prisma.payment.findMany({
       where: { userId },

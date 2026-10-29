@@ -23,7 +23,6 @@ type Payment = {
 
 type LookupState =
   | { kind: "loading" }
-  | { kind: "unauthenticated" }
   | { kind: "missing-reference" }
   | { kind: "not-found" }
   | { kind: "error"; message: string }
@@ -51,13 +50,13 @@ function isPayment(value: unknown): value is Payment {
 function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "cancel" }) {
   const searchParams = useSearchParams();
   const reference = searchParams.get("reference")?.trim() ?? "";
+  const expires = searchParams.get("expires")?.trim() ?? "";
+  const token = searchParams.get("token")?.trim() ?? "";
+  const hasReturnParameters = Boolean(reference && expires && token);
   const [state, setState] = useState<LookupState>({ kind: "loading" });
 
   useEffect(() => {
-    if (!reference) {
-      setState({ kind: "missing-reference" });
-      return;
-    }
+    if (!hasReturnParameters) return;
 
     const controller = new AbortController();
     let active = true;
@@ -65,16 +64,13 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
     const checkPayment = async () => {
       try {
         for (let attempt = 0; attempt < 16; attempt += 1) {
-          const response = await fetch("/api/payments/mine", {
+          const query = new URLSearchParams({ reference, expires, token });
+          const response = await fetch(`/api/payments/return?${query}`, {
             cache: "no-store",
             signal: controller.signal,
           });
           const result: unknown = await response.json().catch(() => null);
           if (!active) return;
-          if (response.status === 401) {
-            setState({ kind: "unauthenticated" });
-            return;
-          }
           if (!response.ok) {
             const message =
               result &&
@@ -85,19 +81,12 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
                 : "Impossible de vérifier le statut du paiement.";
             throw new Error(message);
           }
-          if (!Array.isArray(result)) {
-            throw new Error("La réponse des paiements est invalide.");
-          }
-          const payment = result.find(
-            (item: unknown) =>
-              isPayment(item) && item.reference === reference,
-          );
-          if (!payment || !isPayment(payment)) {
+          if (!isPayment(result) || result.reference !== reference) {
             setState({ kind: "not-found" });
             return;
           }
-          setState({ kind: "payment", payment });
-          if (payment.status !== "PENDING" || attempt === 15) return;
+          setState({ kind: "payment", payment: result });
+          if (result.status !== "PENDING" || attempt === 15) return;
           await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(resolve, 3000);
             controller.signal.addEventListener(
@@ -129,9 +118,12 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
       active = false;
       controller.abort();
     };
-  }, [reference]);
+  }, [expires, hasReturnParameters, reference, token]);
 
-  const payment = state.kind === "payment" ? state.payment : null;
+  const displayState: LookupState = hasReturnParameters
+    ? state
+    : { kind: "missing-reference" };
+  const payment = displayState.kind === "payment" ? displayState.payment : null;
   const title =
     payment?.status === "PAID"
       ? "Paiement confirmé"
@@ -146,7 +138,7 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
   return (
     <main className="mx-auto flex min-h-[55vh] max-w-xl items-center px-4 py-12">
       <section className="w-full rounded-2xl border bg-card p-6 text-center shadow-sm sm:p-8">
-        {state.kind === "loading" && (
+        {displayState.kind === "loading" && (
           <>
             <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-primary" />
             <h1 className="mt-4 font-bricolage text-2xl font-bold">
@@ -157,7 +149,7 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
             </p>
           </>
         )}
-        {state.kind === "payment" && (
+        {displayState.kind === "payment" && (
           <>
             {payment?.status === "PAID" ? (
               <BadgeCheck className="mx-auto h-11 w-11 text-primary" />
@@ -221,36 +213,22 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
             </div>
           </>
         )}
-        {state.kind === "unauthenticated" && (
+        {(displayState.kind === "missing-reference" ||
+          displayState.kind === "not-found" ||
+          displayState.kind === "error") && (
           <>
             <CircleHelp className="mx-auto h-11 w-11 text-accent" />
             <h1 className="mt-4 font-bricolage text-2xl font-bold">
-              Connecte-toi pour vérifier le paiement
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Le statut est associé au compte qui a démarré le paiement.
-            </p>
-            <Button className="mt-6" asChild>
-              <Link href="/connexion">Se connecter</Link>
-            </Button>
-          </>
-        )}
-        {(state.kind === "missing-reference" ||
-          state.kind === "not-found" ||
-          state.kind === "error") && (
-          <>
-            <CircleHelp className="mx-auto h-11 w-11 text-accent" />
-            <h1 className="mt-4 font-bricolage text-2xl font-bold">
-              {state.kind === "missing-reference"
+              {displayState.kind === "missing-reference"
                 ? "Référence de paiement manquante"
-                : state.kind === "not-found"
+                : displayState.kind === "not-found"
                   ? "Paiement introuvable"
                   : "Vérification impossible"}
             </h1>
-            <p role={state.kind === "error" ? "alert" : undefined} className="mt-2 text-sm text-muted-foreground">
-              {state.kind === "error"
-                ? state.message
-                : "Vérifie ton historique de paiements ou contacte l’équipe avec ta référence PayTech."}
+            <p role={displayState.kind === "error" ? "alert" : undefined} className="mt-2 text-sm text-muted-foreground">
+              {displayState.kind === "error"
+                ? displayState.message
+                : "Le lien de retour du paiement est incomplet ou invalide. Vérifie ton historique de paiements ou contacte l’équipe avec ta référence PayTech."}
             </p>
             <Button variant="outline" className="mt-6" onClick={() => window.location.reload()}>
               <RotateCw className="h-4 w-4" /> Réessayer

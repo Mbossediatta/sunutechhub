@@ -110,6 +110,7 @@ export default function AdminCoursPage() {
   const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
   const bannerPreviewRef = useRef("");
   const [editing, setEditing] = useState<AdminCourse | null>(null);
+  const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -162,6 +163,7 @@ export default function AdminCoursPage() {
 
   const beginCreate = () => {
     setEditing(null);
+    setCreating(true);
     setContentCourse(null);
     setForm(emptyForm);
     selectBannerFile(null);
@@ -171,6 +173,7 @@ export default function AdminCoursPage() {
 
   const beginEdit = (course: AdminCourse) => {
     setEditing(course);
+    setCreating(false);
     setForm(toForm(course));
     selectBannerFile(null);
     setError("");
@@ -328,6 +331,7 @@ export default function AdminCoursPage() {
       }
 
       setEditing(null);
+      setCreating(false);
       setForm(emptyForm);
       selectBannerFile(null);
       setNotice(editing ? "Le cours a été modifié." : "Le cours a été créé.");
@@ -375,16 +379,16 @@ export default function AdminCoursPage() {
         ))}
       </div>
 
-      {!editing && (
+      {!editing && !creating && courses.length > 0 && (
         <Button onClick={beginCreate} className="w-fit">
           <Plus className="h-4 w-4" /> Ajouter un cours
         </Button>
       )}
-      {(editing || (!courses.length && !loading)) && (
+      {(editing || creating || (!courses.length && !loading)) && (
         <form onSubmit={save} className="grid gap-3 rounded-2xl border bg-card p-5 sm:grid-cols-2">
           <div className="flex items-center justify-between sm:col-span-2">
             <h2 className="font-bricolage text-lg font-bold">{editing ? "Modifier le cours" : "Créer un cours"}</h2>
-            {editing && <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}><X className="h-4 w-4" /> Fermer</Button>}
+            {(editing || creating) && <Button type="button" variant="ghost" size="sm" onClick={() => { setEditing(null); setCreating(false); selectBannerFile(null); }}><X className="h-4 w-4" /> Fermer</Button>}
           </div>
           <Input required minLength={3} maxLength={180} placeholder="Titre du cours" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
           <Input maxLength={100} placeholder="Langue" value={form.language} onChange={(event) => setForm({ ...form, language: event.target.value })} />

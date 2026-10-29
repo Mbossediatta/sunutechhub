@@ -99,6 +99,8 @@ model User {
   googleSubject            String?                  @unique
   role                     UserRole                 @default(MEMBER)
   interests                String[]                 @default([])
+  newsletterSubscribed     Boolean                  @default(false)
+  newsletterSubscribedAt   DateTime?
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   registrations            CourseRegistration[]
@@ -122,6 +124,16 @@ model User {
   createdJobs              JobOffer[]               @relation("JobCreator")
   reviewedJobs             JobOffer[]               @relation("JobReviewer")
   auditLogs                AdminAuditLog[]
+  newsletterDeliveries     NewsletterDelivery[]
+}
+
+model NewsletterSubscriber {
+  id             String               @id @default(cuid())
+  email          String               @unique
+  subscribedAt   DateTime             @default(now())
+  unsubscribedAt DateTime?
+  createdAt      DateTime             @default(now())
+  deliveries     NewsletterDelivery[]
 }
 
 model Course {
@@ -273,15 +285,44 @@ model PlatformSetting {
 }
 
 model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  body      String
-  link      String?
-  published Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String               @id @default(cuid())
+  title                String
+  body                 String
+  link                 String?
+  published            Boolean              @default(false)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  newsletterDeliveries NewsletterDelivery[]
 
   @@index([published, updatedAt])
+}
+
+model NewsletterDelivery {
+  id             String                @id @default(cuid())
+  campaignKey    String
+  announcementId String?
+  eventId        String?
+  userId         String?
+  subscriberId   String?
+  recipientEmail String
+  recipientName  String
+  subject        String
+  body           String
+  link           String?
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now())
+  lockedUntil    DateTime?
+  sentAt         DateTime?
+  cancelledAt    DateTime?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+  announcement   Announcement?         @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  event          CommunityEvent?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user           User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriber     NewsletterSubscriber? @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignKey, recipientEmail])
+  @@index([sentAt, cancelledAt, nextAttemptAt])
 }
 
 model Promotion {
@@ -482,20 +523,21 @@ model ContentReport {
 }
 
 model CommunityEvent {
-  id            String              @id @default(cuid())
-  title         String
-  description   String
-  startsAt      DateTime
-  endsAt        DateTime?
-  location      String
-  mode          CommunityEventMode
-  capacity      Int?
-  active        Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  createdById   String
-  createdBy     User                @relation("EventCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  registrations EventRegistration[]
+  id                   String               @id @default(cuid())
+  title                String
+  description          String
+  startsAt             DateTime
+  endsAt               DateTime?
+  location             String
+  mode                 CommunityEventMode
+  capacity             Int?
+  active               Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  createdById          String
+  createdBy            User                 @relation("EventCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  registrations        EventRegistration[]
+  newsletterDeliveries NewsletterDelivery[]
 
   @@index([active, startsAt])
 }

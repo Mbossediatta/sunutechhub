@@ -9,6 +9,7 @@ import type {
   UpdatePlatformSettingsDto,
 } from './dto/update-platform-settings.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { queueNewsletterCampaign } from './newsletter.service.js';
 
 const DEFAULT_SETTINGS = {
   platformName: 'Sunu Tech Hub',
@@ -77,14 +78,45 @@ export class PlatformSettingsService {
   async updateAnnouncement(id: string, input: UpdateAnnouncementDto) {
     const current = await this.prisma.announcement.findUnique({ where: { id } });
     if (!current) throw new NotFoundException('Annonce introuvable.');
+    const data = {
+      title: input.title?.trim(),
+      body: input.body?.trim(),
+      link: input.link === undefined ? undefined : input.link?.trim() || null,
+      published: input.published,
+    };
+
+    if (input.published === true && !current.published) {
+      return this.prisma.$transaction(async (transaction) => {
+        const published = await transaction.announcement.updateMany({
+          where: { id, published: false },
+          data: { ...data, published: true },
+        });
+        if (!published.count) {
+          const announcement = await transaction.announcement.findUnique({
+            where: { id },
+          });
+          if (!announcement) throw new NotFoundException('Annonce introuvable.');
+          return { ...announcement, newsletterQueued: 0 };
+        }
+
+        const announcement = await transaction.announcement.findUnique({
+          where: { id },
+        });
+        if (!announcement) throw new NotFoundException('Annonce introuvable.');
+        const queued = await queueNewsletterCampaign(transaction, {
+          key: `announcement:${id}`,
+          announcementId: id,
+          subject: announcement.title,
+          body: announcement.body,
+          link: announcement.link,
+        });
+        return { ...announcement, newsletterQueued: queued };
+      });
+    }
+
     return this.prisma.announcement.update({
       where: { id },
-      data: {
-        title: input.title?.trim(),
-        body: input.body?.trim(),
-        link: input.link === undefined ? undefined : input.link?.trim() || null,
-        published: input.published,
-      },
+      data,
     });
   }
 

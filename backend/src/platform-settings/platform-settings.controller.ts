@@ -7,13 +7,17 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto.js';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto.js';
 import { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto.js';
+import { NewsletterUnsubscribeDto } from './dto/newsletter-unsubscribe.dto.js';
+import { NewsletterSubscribeDto } from './dto/newsletter-subscribe.dto.js';
 import { PlatformSettingsService } from './platform-settings.service.js';
+import { NewsletterService } from './newsletter.service.js';
 
 @Public()
 @Controller('platform-settings')
@@ -34,6 +38,30 @@ export class PublicAnnouncementsController {
   @Get()
   getAnnouncements() {
     return this.settings.getPublishedAnnouncements();
+  }
+}
+
+@Public()
+@Controller('newsletter')
+export class PublicNewsletterController {
+  constructor(private readonly newsletter: NewsletterService) {}
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('subscribe')
+  subscribe(@Body() body: NewsletterSubscribeDto) {
+    return this.newsletter.subscribe(body.email);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('unsubscribe')
+  unsubscribe(@Body() body: NewsletterUnsubscribeDto) {
+    if (body.subscriberId) {
+      return this.newsletter.unsubscribeSubscriber(
+        body.subscriberId,
+        body.token,
+      );
+    }
+    return this.newsletter.unsubscribe(body.userId ?? '', body.token);
   }
 }
 

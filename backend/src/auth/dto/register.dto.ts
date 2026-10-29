@@ -2,6 +2,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsOptional,
   IsString,
@@ -31,4 +32,8 @@ export class RegisterDto {
   @IsString({ each: true })
   @MaxLength(40, { each: true })
   interests?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  newsletterSubscribed?: boolean;
 }

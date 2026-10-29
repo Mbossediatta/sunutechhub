@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JobStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NewsletterService } from '../platform-settings/newsletter.service.js';
 import type { CreateAnswerDto } from './dto/create-answer.dto.js';
 import type { CreateEventDto } from './dto/create-event.dto.js';
 import type { CreateJobDto } from './dto/create-job.dto.js';
@@ -28,7 +29,10 @@ const questionSummary = {
 
 @Injectable()
 export class CommunityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly newsletter: NewsletterService,
+  ) {}
 
   listQuestions() {
     return this.prisma.communityQuestion.findMany({
@@ -284,18 +288,23 @@ export class CommunityService {
         'La fin de l’événement doit être postérieure à son début.',
       );
     }
-    return this.prisma.communityEvent.create({
-      data: {
-        title: input.title.trim(),
-        description: input.description.trim(),
-        startsAt,
-        endsAt,
-        location: input.location.trim(),
-        mode: input.mode,
-        capacity: input.capacity ?? null,
-        createdById: adminId,
-      },
-      include: { _count: { select: { registrations: true } } },
+    return this.prisma.$transaction(async (transaction) => {
+      const event = await transaction.communityEvent.create({
+        data: {
+          title: input.title.trim(),
+          description: input.description.trim(),
+          startsAt,
+          endsAt,
+          location: input.location.trim(),
+          mode: input.mode,
+          capacity: input.capacity ?? null,
+          createdById: adminId,
+        },
+        include: { _count: { select: { registrations: true } } },
+      });
+      const newsletterQueued =
+        await this.newsletter.queueEventNotification(transaction, event);
+      return { ...event, newsletterQueued };
     });
   }
 

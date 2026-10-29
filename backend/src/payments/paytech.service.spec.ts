@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { afterEach, vi } from 'vitest';
 import { PayTechService } from './paytech.service.js';
+import { isValidPaymentReturnToken } from './payment-return-token.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -10,6 +11,7 @@ describe('PayTechService configuration status', () => {
   const configuration: Record<string, string> = {
     PAYTECH_API_KEY: 'test-key',
     PAYTECH_API_SECRET: 'test-secret',
+    JWT_SECRET: 'test-jwt-secret',
     PAYTECH_ENV: 'test',
     PAYTECH_PUBLIC_API_URL: 'https://payments.example.sn',
     FRONTEND_URL: 'https://sunutechhub.sn',
@@ -112,6 +114,7 @@ describe('PayTechService checkout methods', () => {
       new ConfigService({
         PAYTECH_API_KEY: 'test-key',
         PAYTECH_API_SECRET: 'test-secret',
+        JWT_SECRET: 'test-jwt-secret',
         PAYTECH_ENV: 'test',
         PAYTECH_PUBLIC_API_URL: 'https://payments.example.sn',
         PAYTECH_API_URL: 'https://paytech.sn/api/payment/request-payment',
@@ -129,11 +132,29 @@ describe('PayTechService checkout methods', () => {
     });
 
     expect(checkoutPayload?.target_payment).toBe('Wave, Orange Money');
-    expect(checkoutPayload?.success_url).toBe(
-      'https://sunutechhub.sn/paiement/succes?reference=STH-test-reference',
+    const successUrl = new URL(String(checkoutPayload?.success_url));
+    const cancelUrl = new URL(String(checkoutPayload?.cancel_url));
+    expect(successUrl.origin + successUrl.pathname).toBe(
+      'https://sunutechhub.sn/paiement/succes',
     );
-    expect(checkoutPayload?.cancel_url).toBe(
-      'https://sunutechhub.sn/paiement/annule?reference=STH-test-reference',
+    expect(cancelUrl.origin + cancelUrl.pathname).toBe(
+      'https://sunutechhub.sn/paiement/annule',
+    );
+    for (const url of [successUrl, cancelUrl]) {
+      const expiresAt = Number(url.searchParams.get('expires'));
+      const token = url.searchParams.get('token') ?? '';
+      expect(url.searchParams.get('reference')).toBe('STH-test-reference');
+      expect(
+        isValidPaymentReturnToken(
+          'STH-test-reference',
+          expiresAt,
+          token,
+          'test-jwt-secret',
+        ),
+      ).toBe(true);
+    }
+    expect(checkoutPayload?.ipn_url).toBe(
+      'https://payments.example.sn/api/webhooks/paytech',
     );
   });
 });

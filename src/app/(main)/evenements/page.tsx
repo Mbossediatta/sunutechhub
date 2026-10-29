@@ -83,7 +83,7 @@ export default function EvenementsPage() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header className="mb-8">
         <p className="mb-1 text-sm font-semibold text-primary">Agenda</p>
-        <h1 className="font-bricolage text-3xl font-bold">Événements</h1>
+        <h1 className="font-bricolage text-2xl font-bold sm:text-3xl">Événements</h1>
         <p className="mt-2 text-muted-foreground">Rencontres à venir, en ligne et en présentiel.</p>
       </header>
       {error && <p role="alert" className="mb-4 rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">{error}</p>}

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import { Public } from '../common/decorators/public.decorator.js';
@@ -22,6 +32,21 @@ export class PaymentsController {
   @Get('mine')
   listMine(@Req() request: AuthenticatedRequest) {
     return this.payments.listMine(request.user.id);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('return')
+  paymentReturn(
+    @Query('reference') reference: string,
+    @Query('expires') expires: string,
+    @Query('token') token: string,
+  ) {
+    const expiresAt = Number(expires);
+    if (!Number.isSafeInteger(expiresAt)) {
+      return this.payments.getPaymentReturn(reference, Number.NaN, token);
+    }
+    return this.payments.getPaymentReturn(reference, expiresAt, token);
   }
 
   @Get(':reference/receipt')

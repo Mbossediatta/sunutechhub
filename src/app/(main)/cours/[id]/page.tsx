@@ -397,10 +397,10 @@ export default function CoursDetailPage() {
                 </Badge>
               ))}
             </div>
-            <h1 className="font-bricolage text-3xl font-bold">
+            <h1 className="break-words font-bricolage text-2xl font-bold sm:text-3xl">
               {course.title}
             </h1>
-            <p className="mt-4 whitespace-pre-wrap leading-relaxed text-muted-foreground">
+            <p className="mt-4 break-words whitespace-pre-wrap leading-relaxed text-muted-foreground">
               {course.description}
             </p>
             <dl className="mt-6 grid grid-cols-2 gap-3 rounded-2xl border bg-card p-5 text-sm">

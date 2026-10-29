@@ -477,7 +477,7 @@ export default function QuestionPage() {
               </Badge>
             ))}
           </div>
-          <h1 className="font-bricolage text-2xl font-bold leading-tight sm:text-3xl">
+          <h1 className="break-words font-bricolage text-2xl font-bold leading-tight sm:text-3xl">
             {question.title}
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -487,7 +487,7 @@ export default function QuestionPage() {
               timeStyle: "short",
             }).format(new Date(question.createdAt))}
           </p>
-          <div className="my-6 whitespace-pre-wrap rounded-2xl border bg-card p-5 leading-relaxed">
+          <div className="my-6 break-words whitespace-pre-wrap rounded-2xl border bg-card p-4 leading-relaxed sm:p-5">
             {question.body}
           </div>
 
@@ -532,9 +532,9 @@ export default function QuestionPage() {
             {answersPagination.pageItems.map((answer) => (
               <article
                 key={answer.id}
-                className="rounded-2xl border bg-card p-5"
+                className="min-w-0 rounded-2xl border bg-card p-4 sm:p-5"
               >
-                <p className="whitespace-pre-wrap leading-relaxed">
+                <p className="break-words whitespace-pre-wrap leading-relaxed">
                   {answer.body}
                 </p>
                 <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
@@ -588,7 +588,7 @@ export default function QuestionPage() {
                   <div className="mt-4 space-y-3 border-l-2 border-primary/15 pl-4">
                     {[...answer.comments].reverse().map((comment) => (
                       <div key={comment.id} className="text-sm">
-                        <p className="whitespace-pre-wrap">{comment.body}</p>
+                        <p className="break-words whitespace-pre-wrap">{comment.body}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {comment.user.name} ·{" "}
                           {new Intl.DateTimeFormat("fr-FR", {

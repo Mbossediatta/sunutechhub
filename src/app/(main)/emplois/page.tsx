@@ -63,7 +63,7 @@ export default function EmploisPage() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header className="mb-7">
         <p className="mb-1 text-sm font-semibold text-primary">Opportunités</p>
-        <h1 className="font-bricolage text-3xl font-bold">Emplois & missions</h1>
+        <h1 className="font-bricolage text-2xl font-bold sm:text-3xl">Emplois & missions</h1>
         <p className="mt-2 text-muted-foreground">{jobs.length} offre(s) publiée(s)</p>
       </header>
       <div className="mb-5 flex flex-wrap gap-2">

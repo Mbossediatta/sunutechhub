@@ -63,7 +63,7 @@ export default function QuestionsPage() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-bricolage text-3xl font-bold">Questions</h1>
+          <h1 className="font-bricolage text-2xl font-bold sm:text-3xl">Questions</h1>
           <p className="mt-1 text-muted-foreground">{questions.length} question(s) de la communauté</p>
         </div>
         <Button asChild><Link href="/questions/nouveau"><Plus className="h-4 w-4" /> Poser une question</Link></Button>
@@ -77,7 +77,7 @@ export default function QuestionsPage() {
           </button>
         ))}
       </div>
-      <div className="mb-6 flex items-center gap-2 text-sm">
+      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">Trier :</span>
         <button onClick={() => { setSort("recent"); pagination.setPage(1); }} className={sort === "recent" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Récentes</button>
         <button onClick={() => { setSort("unanswered"); pagination.setPage(1); }} className={sort === "unanswered" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Sans réponse</button>
@@ -89,8 +89,8 @@ export default function QuestionsPage() {
       ) : visible.length ? (
         <div className="flex flex-col gap-3">
           {pagination.pageItems.map((question) => (
-            <article key={question.id} className="rounded-2xl border bg-card p-5 transition-colors hover:border-primary/40">
-              <Link href={`/questions/${question.id}`} className="font-semibold leading-snug hover:text-primary">{question.title}</Link>
+            <article key={question.id} className="min-w-0 rounded-2xl border bg-card p-4 transition-colors hover:border-primary/40 sm:p-5">
+              <Link href={`/questions/${question.id}`} className="break-words font-semibold leading-snug hover:text-primary">{question.title}</Link>
               <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {question.status === "SOLVED" && <Badge><CheckCircle2 className="h-3 w-3" /> Résolue</Badge>}

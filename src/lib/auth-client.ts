@@ -40,6 +40,7 @@ export async function submitAuthForm(
     email: string;
     password: string;
     interests?: string[];
+    newsletterSubscribed?: boolean;
   },
 ): Promise<AuthResponse> {
   let response: Response;

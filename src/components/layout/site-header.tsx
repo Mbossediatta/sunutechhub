@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, LogOut, UserRound } from "lucide-react";
+import { Sun, Moon, Search, LogOut, UserRound, Menu, X } from "lucide-react";
 import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ function HeaderNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; role: "MEMBER" | "ADMIN" } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -171,7 +172,7 @@ function HeaderNav() {
       "sticky top-0 z-50 w-full border-b transition-all duration-200",
       scrolled ? "bg-background/95 backdrop-blur-md shadow-sm" : "bg-background/80 backdrop-blur-sm"
     )}>
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 flex h-16 items-center gap-4">
+      <div className="mx-auto max-w-6xl px-3 sm:px-6 flex h-16 items-center gap-2 sm:gap-4">
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
@@ -183,7 +184,7 @@ function HeaderNav() {
             unoptimized
             priority
             loading="eager"
-            className="h-10 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02]"
+            className="h-8 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02] sm:h-10"
           />
         </Link>
 
@@ -251,20 +252,92 @@ function HeaderNav() {
               onClick={() => void signOut()}
               aria-label="Se déconnecter"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
             </Button>
           ) : authChecked && !authError ? (
-            <>
-              <Button variant="ghost" size="sm" className="rounded-xl" asChild>
-                <Link href="/connexion">Connexion</Link>
-              </Button>
-              <Button size="sm" className="rounded-xl" asChild>
-                <Link href="/inscription">S&apos;inscrire</Link>
-              </Button>
-            </>
+            <Button size="sm" className="h-9 rounded-xl px-3 text-xs" asChild>
+              <Link href="/inscription">S&apos;inscrire</Link>
+            </Button>
           ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-xl"
+            aria-label={mobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-primary-navigation"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
         </div>
       </div>
+
+      <nav
+        id="mobile-primary-navigation"
+        hidden={!mobileMenuOpen}
+        className="border-t bg-background px-4 py-3 shadow-lg md:hidden"
+        aria-label="Navigation mobile"
+      >
+        <div className="mx-auto flex max-w-6xl flex-col gap-1">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={pathname === link.href ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+              className={cn(
+                "rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === link.href
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground hover:bg-muted",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="mt-2 flex flex-col gap-2 border-t pt-3">
+            {user ? (
+              <>
+                {user.role === "ADMIN" && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+                  >
+                    Administration
+                  </Link>
+                )}
+                <Link
+                  href="/profil"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  Mon profil
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/connexion"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  Connexion
+                </Link>
+                <Button className="w-full rounded-xl" asChild>
+                  <Link
+                    href="/inscription"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    S&apos;inscrire
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
 
       {announcement && (
         <div className="border-t bg-primary px-4 py-2 text-center text-sm text-primary-foreground">

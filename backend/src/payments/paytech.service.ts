@@ -1,6 +1,11 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import {
+  createPaymentReturnToken,
+  isValidPaymentReturnToken,
+  PAYMENT_RETURN_TOKEN_TTL_SECONDS,
+} from './payment-return-token.js';
 
 interface PayTechCheckoutInput {
   itemName: string;
@@ -151,8 +156,19 @@ export class PayTechService {
     }
     const successUrl = new URL('/paiement/succes', frontendUrl);
     successUrl.searchParams.set('reference', input.reference);
+    const returnExpiresAt =
+      Math.floor(Date.now() / 1000) + PAYMENT_RETURN_TOKEN_TTL_SECONDS;
+    const returnToken = createPaymentReturnToken(
+      input.reference,
+      returnExpiresAt,
+      this.config.getOrThrow<string>('JWT_SECRET'),
+    );
+    successUrl.searchParams.set('expires', String(returnExpiresAt));
+    successUrl.searchParams.set('token', returnToken);
     const cancelUrl = new URL('/paiement/annule', frontendUrl);
     cancelUrl.searchParams.set('reference', input.reference);
+    cancelUrl.searchParams.set('expires', String(returnExpiresAt));
+    cancelUrl.searchParams.set('token', returnToken);
     let response: Response;
     try {
       response = await fetch(apiUrl, {
@@ -216,6 +232,19 @@ export class PayTechService {
     return (
       this.safeHashEqual(apiKeyHash, apiKey) &&
       this.safeHashEqual(apiSecretHash, apiSecret)
+    );
+  }
+
+  verifyPaymentReturnToken(
+    reference: string,
+    expiresAt: number,
+    token: string,
+  ) {
+    return isValidPaymentReturnToken(
+      reference,
+      expiresAt,
+      token,
+      this.config.getOrThrow<string>('JWT_SECRET'),
     );
   }
 

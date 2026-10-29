@@ -32,10 +32,10 @@ export default async function ProjetsPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 text-sm font-semibold text-primary">Communauté</p>
-          <h1 className="mb-1 font-bricolage text-3xl font-bold">Projets</h1>
+          <h1 className="mb-1 font-bricolage text-2xl font-bold sm:text-3xl">Projets</h1>
           <p className="text-muted-foreground">{projects.length} projet{projects.length === 1 ? "" : "s"} approuvé{projects.length === 1 ? "" : "s"} par la communauté.</p>
         </div>
-        <Button className="gap-1.5 rounded-xl shadow-sm shadow-primary/20" asChild>
+        <Button className="max-w-full gap-1.5 whitespace-normal rounded-xl shadow-sm shadow-primary/20" asChild>
           <Link href="/projets/nouveau"><Plus className="h-4 w-4" />Partager mon projet</Link>
         </Button>
       </div>

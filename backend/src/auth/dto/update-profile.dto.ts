@@ -1,6 +1,7 @@
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   MaxLength,
@@ -30,4 +31,8 @@ export class UpdateProfileDto {
   @IsString({ each: true })
   @MaxLength(60, { each: true })
   interests?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  newsletterSubscribed?: boolean;
 }

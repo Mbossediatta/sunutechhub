@@ -174,10 +174,10 @@ export default function ConnexionPage() {
       </div>
 
       {/* ── Panneau droit — formulaire ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10 sm:px-8 lg:py-12 bg-background">
+      <div className="flex-1 flex flex-col items-center justify-start px-4 py-6 sm:justify-center sm:px-8 sm:py-10 lg:py-12 bg-background">
         <div className="w-full max-w-[400px]">
           {/* Logo mobile */}
-          <div className="flex lg:hidden justify-center mb-8">
+          <div className="flex lg:hidden justify-center mb-5 sm:mb-8">
             <Link href="/" className="group">
               <Image
                 src="/logo-sunutech.png"
@@ -185,7 +185,7 @@ export default function ConnexionPage() {
                 width={220}
                 height={55}
                 priority
-                className="h-12 w-auto rounded-lg bg-white object-contain"
+                className="h-10 w-auto rounded-lg bg-white object-contain sm:h-12"
               />
             </Link>
           </div>
@@ -237,7 +237,6 @@ export default function ConnexionPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                autoFocus
                 className="rounded-xl h-11"
                 required
               />

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 
 const links = {
@@ -24,18 +23,9 @@ const links = {
 export function SiteFooter() {
   return (
     <footer className="border-t bg-muted/40">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 pb-24 md:py-12">
+      <div className="mx-auto max-w-6xl px-4 pt-10 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:py-12">
         <div className="grid grid-cols-2 gap-x-8 gap-y-9 sm:grid-cols-4 sm:gap-10">
           <div className="col-span-2 sm:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <Image
-                src="/logo-sunutech.png"
-                alt="Sunu Tech Hub — Apprendre, partager, construire ensemble"
-                width={180}
-                height={45}
-                className="h-11 w-auto rounded-lg bg-white object-contain"
-              />
-            </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Apprendre, partager, construire ensemble. La communauté informatique du Sénégal.
             </p>

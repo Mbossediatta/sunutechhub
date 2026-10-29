@@ -14,6 +14,7 @@ export default function ModifierProfilPage() {
   const [bio,     setBio]    = useState("");
   const [email,   setEmail]  = useState("");
   const [skills,  setSkills] = useState<string[]>([]);
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [custom,  setCustom] = useState("");
   const [loading, setLoad]   = useState(false);
   const [saved,   setSaved]  = useState(false);
@@ -27,12 +28,13 @@ export default function ModifierProfilPage() {
         if (!response.ok || !result || typeof result !== "object") {
           throw new Error("Impossible de charger votre profil.");
         }
-        const profile = result as { name: string; email: string; city: string | null; bio: string | null; interests: string[] };
+        const profile = result as { name: string; email: string; city: string | null; bio: string | null; interests: string[]; newsletterSubscribed: boolean };
         setName(profile.name);
         setEmail(profile.email);
         setCity(profile.city ?? "");
         setBio(profile.bio ?? "");
         setSkills(profile.interests);
+        setNewsletterSubscribed(profile.newsletterSubscribed);
       })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Impossible de charger votre profil."))
       .finally(() => setProfileLoading(false));
@@ -57,7 +59,7 @@ export default function ModifierProfilPage() {
       const response = await fetch("/api/auth/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, city, bio, interests: skills }),
+        body: JSON.stringify({ name, city, bio, interests: skills, newsletterSubscribed }),
       });
       const result: unknown = await response.json().catch(() => null);
       if (!response.ok) {
@@ -132,6 +134,25 @@ export default function ModifierProfilPage() {
               className="w-full rounded-xl border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-all"
             />
           </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-6">
+          <h2 className="font-semibold text-base">Newsletter</h2>
+          <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={newsletterSubscribed}
+              onChange={(event) => setNewsletterSubscribed(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="font-medium">Recevoir les annonces par e-mail</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Tu peux modifier ce choix à tout moment. Chaque e-mail contient
+                aussi un lien de désabonnement.
+              </span>
+            </span>
+          </label>
         </div>
 
         {/* Compétences */}

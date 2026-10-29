@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Briefcase, MessageCircle, Rocket, CheckCircle2 } from "lucide-react";
+import { ArrowRight, BookOpen, Briefcase, MessageCircle, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { RegisterForm } from "@/components/home/register-form";
+import { NewsletterForm } from "@/components/home/newsletter-form";
 import { HomeCommunity } from "@/components/home/home-community";
 
 export default function HomePage() {
@@ -18,9 +18,9 @@ export default function HomePage() {
         <div aria-hidden className="pointer-events-none absolute -top-48 -right-48 h-[500px] w-[500px] rounded-full bg-primary/10 blur-[100px]" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-accent/8 blur-[80px]" />
 
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 md:py-32">
+        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 md:py-32">
           <div className="max-w-3xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
+            <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary sm:px-4 sm:text-sm">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
@@ -28,7 +28,7 @@ export default function HomePage() {
               🇸🇳 La communauté tech du Sénégal
             </div>
 
-            <h1 className="mb-6 text-5xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-6xl md:text-7xl">
+            <h1 className="mb-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-6xl md:text-7xl">
               Apprendre l&apos;info{"\u00ad"}rmatique{" "}
               <span className="relative">
                 <span className="text-primary">ensemble.</span>
@@ -38,18 +38,18 @@ export default function HomePage() {
               </span>
             </h1>
 
-            <p className="mb-10 max-w-xl text-lg text-muted-foreground leading-relaxed">
+            <p className="mb-8 max-w-xl text-base leading-relaxed text-muted-foreground sm:mb-10 sm:text-lg">
               Pose tes questions, découvre des cours en français et en wolof, 
               partage tes projets et trouve des opportunités. Bienvenue.
             </p>
 
-            <div className="flex flex-wrap gap-3 mb-12">
-              <Button size="lg" className="gap-2 rounded-xl shadow-lg shadow-primary/25" asChild>
+            <div className="mb-10 flex flex-col gap-3 sm:mb-12 sm:flex-row sm:flex-wrap">
+              <Button size="lg" className="w-full gap-2 rounded-xl shadow-lg shadow-primary/25 sm:w-auto" asChild>
                 <Link href="/inscription">
                   Rejoindre gratuitement <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button size="lg" variant="secondary" className="rounded-xl" asChild>
+              <Button size="lg" variant="secondary" className="w-full rounded-xl sm:w-auto" asChild>
                 <Link href="/questions">Voir les questions</Link>
               </Button>
             </div>
@@ -131,18 +131,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CTA INSCRIPTION ──────────────────────────────────────── */}
+      {/* ── CTA NEWSLETTER ──────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-panel py-20">
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(43,78,255,0.15),transparent_70%)]" />
         <div className="relative mx-auto max-w-xl px-4 sm:px-6 text-center">
           <h2 className="font-bricolage text-3xl md:text-4xl font-bold text-white mb-4">
-            Rejoins la communauté
+            Reçois les nouvelles de la communauté
           </h2>
           <p className="text-slate-400 mb-8 text-lg">
-            Dalal ak jàmm — entre et sois le bienvenu. Gratuit, ça prend 30 secondes.
+            Abonne-toi aux annonces et aux événements de Sunu Tech Hub. Aucun compte nécessaire.
           </p>
-          <RegisterForm />
-          <p className="text-slate-500 text-xs mt-4">Pas de spam. Désinscription en un clic.</p>
+          <NewsletterForm />
+          <p className="text-slate-500 text-xs mt-4">Pas de spam. Désabonnement en un clic.</p>
         </div>
       </section>
 

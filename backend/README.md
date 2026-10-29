@@ -66,6 +66,12 @@ active. L’envoi utilise la configuration SMTP et réessaie automatiquement en
 cas d’échec. Dans l’espace Questions, les membres connectés peuvent aussi aimer
 les réponses et y ajouter des commentaires.
 
+Le retour PayTech utilise `FRONTEND_URL` pour les pages de succès et
+d’annulation. Le webhook de confirmation est envoyé directement à
+`PAYTECH_PUBLIC_API_URL/api/webhooks/paytech`. La page de retour vérifie le
+paiement avec un jeton HMAC temporaire; la confirmation et l’activation de
+l’inscription restent exclusivement déclenchées par le webhook PayTech signé.
+
 Les supports PDF de cours sont téléversés dans un bucket Supabase Storage privé.
 Créez le bucket `course-files` (ou définissez `SUPABASE_COURSE_FILES_BUCKET`),
 limitez sa taille maximale à 20 Mo et configurez `SUPABASE_URL` ainsi que
@@ -83,6 +89,12 @@ depuis l’ordinateur, créez un bucket public `course-banners` (ou configurez
 liens de téléversement signés et vérifie les images JPG, PNG ou WebP de 5 Mo
 maximum. Le rôle service reste exclusivement côté backend. Un lien HTTPS
 existant peut aussi être saisi à la place d’un fichier.
+
+La newsletter peut être rejointe sans compte avec
+`POST /api/newsletter/subscribe`. Les personnes abonnées reçoivent les annonces
+publiées par l’administration et les notifications des nouveaux événements.
+Chaque e-mail contient un lien de désabonnement; les adresses sont dédupliquées
+entre les abonnements autonomes et les comptes membres.
 
 Pour les séances en direct, ajoutez l’URL HTTPS de réunion Google Meet ou Zoom
 et sa date/heure. Les membres inscrits rejoignent la séance via le lien affiché
@@ -107,6 +119,13 @@ dans leur espace cours.
 - Le premier administrateur est créé par la commande d’initialisation avec les
   variables `ADMIN_EMAIL` et `ADMIN_PASSWORD`. Aucun mot de passe de démonstration
   n’est intégré au code.
+
+  La newsletter repose sur un consentement facultatif lors de l’inscription ou
+  dans la modification du profil. Les comptes existants restent désabonnés après
+  migration. Lorsqu’une annonce est publiée, les e-mails sont mis en file pour
+  les seuls abonnés et envoyés avec la configuration SMTP; chaque e-mail contient
+  un lien de désabonnement. Appliquez la migration avec `npm run db:deploy` avant
+  de démarrer la nouvelle version du backend.
 
 ## Tarification
 
