@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, EyeOff, LoaderCircle, ShieldAlert, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Report = {
   id: string;
@@ -85,6 +87,7 @@ export default function AdminModerationPage() {
       ),
     [reports, tab],
   );
+  const pagination = usePagination(visibleReports);
 
   const handleReview = async (
     report: Report,
@@ -119,10 +122,10 @@ export default function AdminModerationPage() {
         ))}
       </div>
       <div className="flex gap-2">
-        <Button variant={tab === "PENDING" ? "default" : "secondary"} onClick={() => setTab("PENDING")}>
+        <Button variant={tab === "PENDING" ? "default" : "secondary"} onClick={() => { setTab("PENDING"); pagination.setPage(1); }}>
           En attente ({pendingCount})
         </Button>
-        <Button variant={tab === "CLOSED" ? "default" : "secondary"} onClick={() => setTab("CLOSED")}>
+        <Button variant={tab === "CLOSED" ? "default" : "secondary"} onClick={() => { setTab("CLOSED"); pagination.setPage(1); }}>
           Traités ({closedCount})
         </Button>
       </div>
@@ -130,7 +133,7 @@ export default function AdminModerationPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10 text-muted-foreground"><LoaderCircle className="h-5 w-5 animate-spin" /></div>
       ) : visibleReports.length ? (
         <div className="flex flex-col gap-3">
-          {visibleReports.map((report) => {
+          {pagination.pageItems.map((report) => {
             const target = report.question
               ? { label: "Question", title: report.question.title, body: report.question.body }
               : report.answer
@@ -175,6 +178,16 @@ export default function AdminModerationPage() {
           <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-primary/50" />
           <p className="font-medium">{tab === "PENDING" ? "Aucun signalement en attente." : "Aucun signalement traité."}</p>
         </div>
+      )}
+      {!loading && (
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       )}
     </div>
   );

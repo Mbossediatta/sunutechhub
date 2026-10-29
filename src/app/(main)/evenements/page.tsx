@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { CalendarDays, LoaderCircle, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type EventItem = {
   id: string;
@@ -23,6 +25,7 @@ export default function EvenementsPage() {
   const [registering, setRegistering] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(events);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +92,7 @@ export default function EvenementsPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10"><LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : events.length ? (
         <div className="flex flex-col gap-3">
-          {events.map((item) => {
+          {pagination.pageItems.map((item) => {
             const full = item.capacity !== null && item._count.registrations >= item.capacity;
             return (
               <article key={item.id} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 sm:flex-row">
@@ -116,6 +119,14 @@ export default function EvenementsPage() {
               </article>
             );
           })}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       ) : (
         <div className="rounded-2xl border bg-card p-10 text-center">

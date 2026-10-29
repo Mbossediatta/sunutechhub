@@ -18,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type SecurityEvent = {
   id: string;
@@ -79,6 +81,7 @@ type SecurityOverview = {
   summary: {
     total: number;
     failedLogins: number;
+    suspiciousRequests: number;
     denied: number;
     rateLimited: number;
   };
@@ -92,6 +95,11 @@ type ErrorSummary = {
   statusCode: number;
   count: number;
   lastSeen: string;
+};
+
+type ErrorResponse = {
+  events: ErrorSummary[];
+  truncated: boolean;
 };
 
 const numberFormat = new Intl.NumberFormat("fr-FR");
@@ -136,7 +144,7 @@ function fetchOperations() {
 }
 
 function fetchErrors() {
-  return fetchJson<ErrorSummary[]>("/api/admin/security/errors");
+  return fetchJson<ErrorResponse>("/api/admin/security/errors");
 }
 
 function getErrorMessage(error: unknown) {
@@ -175,7 +183,10 @@ function summarizeJson(value: unknown) {
 export default function AdminSecurityPage() {
   const [overview, setOverview] = useState<SecurityOverview | null>(null);
   const [operations, setOperations] = useState<Operations | null>(null);
-  const [errors, setErrors] = useState<ErrorSummary[]>([]);
+  const [errors, setErrors] = useState<ErrorResponse>({
+    events: [],
+    truncated: false,
+  });
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -184,6 +195,9 @@ export default function AdminSecurityPage() {
   const [auditAction, setAuditAction] = useState("");
   const [auditFrom, setAuditFrom] = useState("");
   const [auditTo, setAuditTo] = useState("");
+  const recentEventsPagination = usePagination(overview?.recentEvents ?? []);
+  const errorsPagination = usePagination(errors.events);
+  const auditPagination = usePagination(audit);
 
   const loadOverview = useCallback(
     async (isRefresh = false) => {
@@ -260,6 +274,11 @@ export default function AdminSecurityPage() {
           label: "Échecs de connexion · 24 h",
           value: overview.summary.failedLogins,
           icon: LockKeyhole,
+        },
+        {
+          label: "Requêtes suspectes · 24 h",
+          value: overview.summary.suspiciousRequests,
+          icon: ShieldAlert,
         },
         {
           label: "Accès refusés · 24 h",
@@ -461,7 +480,7 @@ export default function AdminSecurityPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {overview.recentEvents.map((event) => (
+                      {recentEventsPagination.pageItems.map((event) => (
                         <tr key={event.id} className="border-b last:border-0">
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">
                             {new Intl.DateTimeFormat("fr-FR", {
@@ -503,6 +522,14 @@ export default function AdminSecurityPage() {
                       ))}
                     </tbody>
                   </table>
+                  <PaginationControls
+                    page={recentEventsPagination.page}
+                    pageSize={recentEventsPagination.pageSize}
+                    totalItems={recentEventsPagination.totalItems}
+                    totalPages={recentEventsPagination.totalPages}
+                    onPageChange={recentEventsPagination.setPage}
+                    onPageSizeChange={recentEventsPagination.setPageSize}
+                  />
                 </div>
               ) : (
                 <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -524,8 +551,16 @@ export default function AdminSecurityPage() {
                 jours. Le message technique détaillé n’est pas exposé dans le
                 tableau de bord.
               </p>
-              {errors.length ? (
+              {errors.events.length ? (
                 <div className="mt-4 overflow-x-auto">
+                  {errors.truncated && (
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Plus de 200 types d’erreurs distincts ont été observés.
+                      Les répétitions indiquées restent agrégées par type, page
+                      et statut ; seuls les 200 groupes les plus récents sont
+                      affichés.
+                    </p>
+                  )}
                   <table className="w-full min-w-[600px] text-left text-sm">
                     <thead>
                       <tr className="border-b text-xs text-muted-foreground">
@@ -539,7 +574,7 @@ export default function AdminSecurityPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {errors.map((item) => (
+                      {errorsPagination.pageItems.map((item) => (
                         <tr
                           key={`${item.eventType}:${item.path}:${item.statusCode}`}
                           className="border-b last:border-0"
@@ -562,6 +597,14 @@ export default function AdminSecurityPage() {
                       ))}
                     </tbody>
                   </table>
+                  <PaginationControls
+                    page={errorsPagination.page}
+                    pageSize={errorsPagination.pageSize}
+                    totalItems={errorsPagination.totalItems}
+                    totalPages={errorsPagination.totalPages}
+                    onPageChange={errorsPagination.setPage}
+                    onPageSizeChange={errorsPagination.setPageSize}
+                  />
                 </div>
               ) : (
                 <p className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
@@ -834,7 +877,7 @@ export default function AdminSecurityPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {audit.map((entry) => (
+                      {auditPagination.pageItems.map((entry) => (
                         <tr key={entry.id} className="border-b last:border-0">
                           <td className="whitespace-nowrap px-3 py-3 text-xs">
                             {new Intl.DateTimeFormat("fr-FR", {
@@ -860,6 +903,14 @@ export default function AdminSecurityPage() {
                       ))}
                     </tbody>
                   </table>
+                  <PaginationControls
+                    page={auditPagination.page}
+                    pageSize={auditPagination.pageSize}
+                    totalItems={auditPagination.totalItems}
+                    totalPages={auditPagination.totalPages}
+                    onPageChange={auditPagination.setPage}
+                    onPageSizeChange={auditPagination.setPageSize}
+                  />
                 </div>
               ) : (
                 <p className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">

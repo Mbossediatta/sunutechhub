@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, LoaderCircle, MessageSquare, Send, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Answer = {
   id: string;
@@ -35,6 +37,7 @@ export default function QuestionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const answersPagination = usePagination(question?.answers ?? []);
 
   const load = useCallback(async () => {
     setError("");
@@ -163,7 +166,7 @@ export default function QuestionPage() {
           )}
 
           <div className="mb-8 flex flex-col gap-3">
-            {question.answers.map((answer) => (
+            {answersPagination.pageItems.map((answer) => (
               <article key={answer.id} className="rounded-2xl border bg-card p-5">
                 <p className="whitespace-pre-wrap leading-relaxed">{answer.body}</p>
                 <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
@@ -172,6 +175,14 @@ export default function QuestionPage() {
               </article>
             ))}
             {!question.answers.length && <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Pas encore de réponse. Tu peux être le premier.</p>}
+            <PaginationControls
+              page={answersPagination.page}
+              pageSize={answersPagination.pageSize}
+              totalItems={answersPagination.totalItems}
+              totalPages={answersPagination.totalPages}
+              onPageChange={answersPagination.setPage}
+              onPageSizeChange={answersPagination.setPageSize}
+            />
           </div>
 
           {question.status === "OPEN" && (

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleAlert, CircleCheck, ExternalLink, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Project = {
   id: string;
@@ -74,6 +76,7 @@ export default function AdminProjetsPage() {
     () => projects.filter((project) => status === "ALL" || project.status === status),
     [projects, status],
   );
+  const pagination = usePagination(filtered);
 
   const review = async (project: Project, nextStatus: Project["status"]) => {
     const reviewNote =
@@ -115,7 +118,7 @@ export default function AdminProjetsPage() {
         <span className="font-semibold">Filtrer les projets</span>
         <select
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => { setStatus(event.target.value); pagination.setPage(1); }}
           className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
         >
           <option value="PENDING">En attente d’évaluation</option>
@@ -131,7 +134,7 @@ export default function AdminProjetsPage() {
         </div>
       ) : filtered.length ? (
         <div className="grid gap-4">
-          {filtered.map((project) => {
+          {pagination.pageItems.map((project) => {
             const waitingDays = Math.floor(
               (Date.now() - new Date(project.submittedAt).getTime()) / 86_400_000,
             );
@@ -206,6 +209,16 @@ export default function AdminProjetsPage() {
         <p className="rounded-2xl border bg-card p-8 text-center text-sm text-muted-foreground">
           Aucun projet dans cette catégorie.
         </p>
+      )}
+      {!loading && (
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       )}
     </div>
   );

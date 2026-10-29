@@ -18,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Course = {
   id: string;
@@ -90,6 +92,7 @@ export default function CoursDetailPage() {
   const [progress, setProgress] = useState<CourseProgress | null>(null);
   const [progressError, setProgressError] = useState("");
   const [workingProgressId, setWorkingProgressId] = useState("");
+  const contentPagination = usePagination(content);
 
   const loadContent = useCallback(async (courseId: string) => {
     setContentAccess("checking");
@@ -465,8 +468,9 @@ export default function CoursDetailPage() {
                   {contentError}
                 </p>
               ) : content.length ? (
-                <ol className="mt-4 divide-y">
-                  {content.map((item) => {
+                <>
+                  <ol className="mt-4 divide-y">
+                    {contentPagination.pageItems.map((item) => {
                     const Icon =
                       item.type === "VIDEO"
                         ? Video
@@ -537,8 +541,17 @@ export default function CoursDetailPage() {
                         </div>
                       </li>
                     );
-                  })}
-                </ol>
+                    })}
+                  </ol>
+                  <PaginationControls
+                    page={contentPagination.page}
+                    pageSize={contentPagination.pageSize}
+                    totalItems={contentPagination.totalItems}
+                    totalPages={contentPagination.totalPages}
+                    onPageChange={contentPagination.setPage}
+                    onPageSizeChange={contentPagination.setPageSize}
+                  />
+                </>
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">
                   Aucun contenu n’a encore été publié pour ce cours.

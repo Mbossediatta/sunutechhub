@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, LoaderCircle, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Question = {
   id: string;
@@ -55,6 +57,7 @@ export default function QuestionsPage() {
       ? [...filtered].sort((a, b) => a._count.answers - b._count.answers || Date.parse(b.createdAt) - Date.parse(a.createdAt))
       : filtered;
   }, [questions, subject, sort]);
+  const pagination = usePagination(visible);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -68,7 +71,7 @@ export default function QuestionsPage() {
 
       <div className="mb-4 flex gap-2 overflow-x-auto pb-2" role="group" aria-label="Filtrer par sujet">
         {subjects.map((item) => (
-          <button key={item} aria-pressed={subject === item} onClick={() => setSubject(item)}
+          <button key={item} aria-pressed={subject === item} onClick={() => { setSubject(item); pagination.setPage(1); }}
             className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium ${subject === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}>
             {item}
           </button>
@@ -76,8 +79,8 @@ export default function QuestionsPage() {
       </div>
       <div className="mb-6 flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">Trier :</span>
-        <button onClick={() => setSort("recent")} className={sort === "recent" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Récentes</button>
-        <button onClick={() => setSort("unanswered")} className={sort === "unanswered" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Sans réponse</button>
+        <button onClick={() => { setSort("recent"); pagination.setPage(1); }} className={sort === "recent" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Récentes</button>
+        <button onClick={() => { setSort("unanswered"); pagination.setPage(1); }} className={sort === "unanswered" ? "rounded-lg bg-primary/10 px-3 py-1 font-medium text-primary" : "px-3 py-1 text-muted-foreground"}>Sans réponse</button>
       </div>
 
       {error && <p role="alert" className="mb-4 rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">{error}</p>}
@@ -85,7 +88,7 @@ export default function QuestionsPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10"><LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : visible.length ? (
         <div className="flex flex-col gap-3">
-          {visible.map((question) => (
+          {pagination.pageItems.map((question) => (
             <article key={question.id} className="rounded-2xl border bg-card p-5 transition-colors hover:border-primary/40">
               <Link href={`/questions/${question.id}`} className="font-semibold leading-snug hover:text-primary">{question.title}</Link>
               <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
@@ -100,6 +103,14 @@ export default function QuestionsPage() {
               </div>
             </article>
           ))}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       ) : (
         <div className="rounded-2xl border bg-card py-16 text-center">

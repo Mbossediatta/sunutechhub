@@ -5,6 +5,8 @@ import { BriefcaseBusiness, LoaderCircle, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type JobOffer = {
   id: string;
@@ -64,6 +66,7 @@ export default function AdminEmploisPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(jobs);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,7 +146,7 @@ export default function AdminEmploisPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10"><LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : jobs.length ? (
         <div className="flex flex-col gap-3">
-          {jobs.map((job) => (
+          {pagination.pageItems.map((job) => (
             <article key={job.id} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 sm:flex-row sm:items-start">
               <BriefcaseBusiness className="mt-1 h-5 w-5 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
@@ -166,6 +169,16 @@ export default function AdminEmploisPage() {
         </div>
       ) : (
         <p className="rounded-2xl border bg-card p-8 text-center text-sm text-muted-foreground">Aucune offre n’est enregistrée.</p>
+      )}
+      {!loading && (
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       )}
     </div>
   );

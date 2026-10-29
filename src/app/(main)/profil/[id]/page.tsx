@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, CheckCircle2, FolderGit2, MapPin, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginatedCourseLinks } from "@/components/cards/paginated-course-links";
 import type { Metadata } from "next";
 
 type PublicProfile = {
@@ -82,13 +83,7 @@ export default async function ProfilPublicPage({ params }: { params: Promise<{ i
         <Card>
           <CardContent className="p-6">
             <h2 className="mb-5 font-bricolage text-lg font-bold">Cours suivis</h2>
-            <div className="flex flex-col gap-3">
-              {profile.registrations.map(({ id: registrationId, course }) => (
-                <Link key={registrationId} href={`/cours/${course.id}`} className="rounded-xl border p-4 text-sm font-medium hover:border-primary">
-                  {course.title}
-                </Link>
-              ))}
-            </div>
+            <PaginatedCourseLinks registrations={profile.registrations} />
           </CardContent>
         </Card>
       )}

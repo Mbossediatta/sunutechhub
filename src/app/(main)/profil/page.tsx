@@ -15,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Profile = {
   id: string;
@@ -74,6 +76,9 @@ export default function ProfilPage() {
   const [paymentsError, setPaymentsError] = useState("");
   const [attestations, setAttestations] = useState<Attestation[]>([]);
   const [attestationsError, setAttestationsError] = useState("");
+  const registrationsPagination = usePagination(profile?.registrations ?? []);
+  const paymentsPagination = usePagination(payments);
+  const attestationsPagination = usePagination(attestations);
 
   useEffect(() => {
     const loadMemberArea = async () => {
@@ -235,7 +240,7 @@ export default function ProfilPage() {
           <h2 className="mb-5 font-bricolage text-lg font-bold">Mes cours</h2>
           {profile.registrations.length ? (
             <div className="flex flex-col gap-3">
-              {profile.registrations.map(({ id, endsAt, course }) => {
+              {registrationsPagination.pageItems.map(({ id, endsAt, course }) => {
                 const active = !endsAt || new Date(endsAt) > new Date();
                 return (
                   <Link
@@ -250,6 +255,14 @@ export default function ProfilPage() {
                   </Link>
                 );
               })}
+              <PaginationControls
+                page={registrationsPagination.page}
+                pageSize={registrationsPagination.pageSize}
+                totalItems={registrationsPagination.totalItems}
+                totalPages={registrationsPagination.totalPages}
+                onPageChange={registrationsPagination.setPage}
+                onPageSizeChange={registrationsPagination.setPageSize}
+              />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -270,7 +283,7 @@ export default function ProfilPage() {
             </p>
           ) : payments.length ? (
             <div className="flex flex-col gap-3">
-              {payments.map((payment) => (
+              {paymentsPagination.pageItems.map((payment) => (
                 <div
                   key={payment.reference}
                   className="flex flex-col justify-between gap-3 rounded-xl border p-4 sm:flex-row sm:items-center"
@@ -324,6 +337,14 @@ export default function ProfilPage() {
                   </div>
                 </div>
               ))}
+              <PaginationControls
+                page={paymentsPagination.page}
+                pageSize={paymentsPagination.pageSize}
+                totalItems={paymentsPagination.totalItems}
+                totalPages={paymentsPagination.totalPages}
+                onPageChange={paymentsPagination.setPage}
+                onPageSizeChange={paymentsPagination.setPageSize}
+              />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -344,7 +365,7 @@ export default function ProfilPage() {
             </p>
           ) : attestations.length ? (
             <div className="flex flex-col gap-3">
-              {attestations.map((attestation) => (
+              {attestationsPagination.pageItems.map((attestation) => (
                 <div
                   key={attestation.number}
                   className="flex flex-col justify-between gap-3 rounded-xl border p-4 sm:flex-row sm:items-center"
@@ -393,6 +414,14 @@ export default function ProfilPage() {
                   </div>
                 </div>
               ))}
+              <PaginationControls
+                page={attestationsPagination.page}
+                pageSize={attestationsPagination.pageSize}
+                totalItems={attestationsPagination.totalItems}
+                totalPages={attestationsPagination.totalPages}
+                onPageChange={attestationsPagination.setPage}
+                onPageSizeChange={attestationsPagination.setPageSize}
+              />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

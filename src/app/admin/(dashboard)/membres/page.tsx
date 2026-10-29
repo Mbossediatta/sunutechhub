@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Member = {
   id: string;
@@ -73,6 +75,7 @@ export default function AdminMembresPage() {
       }),
     [members, role, search],
   );
+  const pagination = usePagination(filtered);
   const memberCount = members.filter((member) => member.role === "MEMBER").length;
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
 
@@ -103,13 +106,13 @@ export default function AdminMembresPage() {
           <Input
             placeholder="Rechercher par nom ou e-mail"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => { setSearch(event.target.value); pagination.setPage(1); }}
             className="rounded-xl pl-9"
           />
         </div>
         <select
           value={role}
-          onChange={(event) => setRole(event.target.value)}
+          onChange={(event) => { setRole(event.target.value); pagination.setPage(1); }}
           className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
         >
           <option value="ALL">Tous les rôles</option>
@@ -138,7 +141,7 @@ export default function AdminMembresPage() {
                 </td>
               </tr>
             ) : filtered.length ? (
-              filtered.map((member) => (
+              pagination.pageItems.map((member) => (
                 <tr key={member.id} className="border-t">
                   <td className="p-3">
                     <div className="flex items-center gap-3">
@@ -184,6 +187,14 @@ export default function AdminMembresPage() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
       <p className="text-xs text-muted-foreground">
         L’API actuelle gère les rôles membre et administrateur. Les autres rôles,
         suspensions et bannissements ne sont pas encore pris en charge.

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type ContentType = "VIDEO" | "RESOURCE" | "LIVE_SESSION";
 
@@ -83,6 +85,7 @@ export function CourseContentManager({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(contents);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -392,7 +395,7 @@ export function CourseContentManager({
             <LoaderCircle className="h-4 w-4 animate-spin" /> Chargement…
           </p>
         ) : contents.length ? (
-          contents.map((content) => (
+          pagination.pageItems.map((content) => (
             <article
               key={content.id}
               className="flex flex-wrap items-center justify-between gap-3 p-3"
@@ -440,6 +443,14 @@ export function CourseContentManager({
           </p>
         )}
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
       <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <CalendarDays className="h-3.5 w-3.5" />
         Le lien HTTPS est fourni par ton service vidéo, de partage de fichiers ou

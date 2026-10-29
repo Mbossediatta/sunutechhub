@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ProjectCard } from "@/components/cards/project-card";
+import { PaginatedProjectGrid } from "@/components/cards/paginated-project-grid";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Projets" };
@@ -41,19 +41,7 @@ export default async function ProjetsPage() {
       </div>
 
       {projects.length ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              id={project.id}
-              title={project.title}
-              description={project.description}
-              author={project.user}
-              courseTitle={project.course.title}
-              technologies={project.course.subjects}
-            />
-          ))}
-        </div>
+        <PaginatedProjectGrid projects={projects} />
       ) : (
         <div className="py-20 text-center">
           <p className="mb-4 text-5xl">🚀</p>

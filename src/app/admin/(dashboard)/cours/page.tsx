@@ -5,6 +5,8 @@ import { BadgeDollarSign, BookOpen, LoaderCircle, Pencil, Plus, X } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CourseContentManager } from "@/components/admin/course-content-manager";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type AdminCourse = {
   id: string;
@@ -109,6 +111,7 @@ export default function AdminCoursPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(courses);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -306,7 +309,7 @@ export default function AdminCoursPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={5} className="p-8 text-center text-muted-foreground"><LoaderCircle className="mx-auto h-5 w-5 animate-spin" /><span className="mt-2 block">Chargement des cours…</span></td></tr>
-            ) : courses.length ? courses.map((course) => (
+            ) : courses.length ? pagination.pageItems.map((course) => (
               <tr key={course.id} className="border-t">
                 <td className="p-3"><span className="flex items-center gap-2 font-medium">{course.coverImageUrl ? <img src={course.coverImageUrl} alt="" className="h-10 w-14 rounded-md object-cover" /> : <BookOpen className="h-4 w-4 shrink-0 text-primary" />}{course.title}</span><span className="ml-6 text-xs text-muted-foreground">{course.lessons} leçons · {course.duration || "Durée non précisée"}</span></td>
                 <td className="p-3 text-xs text-muted-foreground">{course.level} · {course.language}</td>
@@ -318,6 +321,14 @@ export default function AdminCoursPage() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
       {contentCourse && (
         <CourseContentManager
           courseId={contentCourse.id}

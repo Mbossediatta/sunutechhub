@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LoaderCircle, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Question = {
   id: string;
@@ -20,6 +22,7 @@ export default function AdminQuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const pagination = usePagination(questions);
 
   useEffect(() => {
     let active = true;
@@ -85,7 +88,7 @@ export default function AdminQuestionsPage() {
             {loading ? (
               <tr><td colSpan={5} className="p-8 text-center text-muted-foreground"><LoaderCircle className="mx-auto h-5 w-5 animate-spin" /><span className="mt-2 block">Chargement…</span></td></tr>
             ) : questions.length ? (
-              questions.map((question) => (
+              pagination.pageItems.map((question) => (
                 <tr key={question.id} className="border-t">
                   <td className="max-w-md p-3">
                     <Link href={`/questions/${question.id}`} className="flex items-start gap-2 font-medium hover:text-primary">
@@ -111,6 +114,14 @@ export default function AdminQuestionsPage() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
       <p className="text-xs text-muted-foreground">Le masquage du contenu signalé se traite depuis la page Modération.</p>
     </div>
   );

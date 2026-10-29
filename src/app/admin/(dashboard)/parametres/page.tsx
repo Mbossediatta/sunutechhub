@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Settings = {
   platformName: string;
@@ -95,6 +97,7 @@ export default function AdminParametresPage() {
   const [busyAnnouncementId, setBusyAnnouncementId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const announcementsPagination = usePagination(announcements);
 
   const loadData = useCallback(async () => {
     try {
@@ -443,7 +446,7 @@ export default function AdminParametresPage() {
                 </div>
               </form>
               <div className="mt-5 divide-y rounded-xl border">
-                {announcements.length ? announcements.map((announcement) => (
+                {announcements.length ? announcementsPagination.pageItems.map((announcement) => (
                   <article key={announcement.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -472,6 +475,14 @@ export default function AdminParametresPage() {
                   <p className="p-5 text-center text-sm text-muted-foreground">Aucune annonce pour le moment.</p>
                 )}
               </div>
+              <PaginationControls
+                page={announcementsPagination.page}
+                pageSize={announcementsPagination.pageSize}
+                totalItems={announcementsPagination.totalItems}
+                totalPages={announcementsPagination.totalPages}
+                onPageChange={announcementsPagination.setPage}
+                onPageSizeChange={announcementsPagination.setPageSize}
+              />
             </CardContent>
           </Card>
 

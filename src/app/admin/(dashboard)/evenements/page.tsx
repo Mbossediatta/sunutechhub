@@ -4,6 +4,8 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { CalendarDays, LoaderCircle, MapPin, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type EventItem = {
   id: string;
@@ -56,6 +58,7 @@ export default function AdminEvenementsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(events);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,7 +143,7 @@ export default function AdminEvenementsPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10"><LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : events.length ? (
         <div className="flex flex-col gap-3">
-          {events.map((item) => (
+          {pagination.pageItems.map((item) => (
             <article key={item.id} className="flex flex-col gap-4 rounded-2xl border bg-card p-5 sm:flex-row sm:items-center">
               <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
@@ -159,6 +162,16 @@ export default function AdminEvenementsPage() {
         </div>
       ) : (
         <p className="rounded-2xl border bg-card p-8 text-center text-sm text-muted-foreground">Aucun événement enregistré.</p>
+      )}
+      {!loading && (
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       )}
     </div>
   );

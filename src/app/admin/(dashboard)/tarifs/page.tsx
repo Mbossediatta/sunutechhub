@@ -6,6 +6,8 @@ import { Check, CircleAlert, LoaderCircle, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type PriceKey =
   | "prix_cours_base"
@@ -132,6 +134,9 @@ export default function AdminTarifsPage() {
     expiresAt: "",
     usageLimit: "",
   });
+  const coursesPagination = usePagination(courses);
+  const promotionsPagination = usePagination(promotions);
+  const historyPagination = usePagination(history);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -460,7 +465,7 @@ export default function AdminTarifsPage() {
             </p>
           ) : (
             <div className="flex flex-col gap-4">
-              {courses.map((course) => (
+              {coursesPagination.pageItems.map((course) => (
                 <form
                   key={course.id}
                   action={(data) => saveCourse(course, data)}
@@ -498,6 +503,14 @@ export default function AdminTarifsPage() {
                       />
                     </label>
                   ))}
+                  <PaginationControls
+                    page={coursesPagination.page}
+                    pageSize={coursesPagination.pageSize}
+                    totalItems={coursesPagination.totalItems}
+                    totalPages={coursesPagination.totalPages}
+                    onPageChange={coursesPagination.setPage}
+                    onPageSizeChange={coursesPagination.setPageSize}
+                  />
                   <label className="flex items-center gap-2 text-sm sm:col-span-2 lg:col-span-4">
                     <input
                       name="isFree"
@@ -636,7 +649,7 @@ export default function AdminTarifsPage() {
                 </tr>
               </thead>
               <tbody>
-                {promotions.map((item) => (
+                {promotionsPagination.pageItems.map((item) => (
                   <tr key={item.id} className="border-t">
                     <td className="p-3 font-semibold">{item.code}</td>
                     <td className="p-3">
@@ -673,6 +686,14 @@ export default function AdminTarifsPage() {
               </tbody>
             </table>
           </div>
+          <PaginationControls
+            page={promotionsPagination.page}
+            pageSize={promotionsPagination.pageSize}
+            totalItems={promotionsPagination.totalItems}
+            totalPages={promotionsPagination.totalPages}
+            onPageChange={promotionsPagination.setPage}
+            onPageSizeChange={promotionsPagination.setPageSize}
+          />
         </CardContent>
       </Card>
 
@@ -696,7 +717,7 @@ export default function AdminTarifsPage() {
                 </tr>
               </thead>
               <tbody>
-                {history.map((item) => (
+                {historyPagination.pageItems.map((item) => (
                   <tr key={item.id} className="border-t">
                     <td className="whitespace-nowrap p-3">
                       {new Intl.DateTimeFormat("fr-FR", {
@@ -720,6 +741,14 @@ export default function AdminTarifsPage() {
               </tbody>
             </table>
           </div>
+          <PaginationControls
+            page={historyPagination.page}
+            pageSize={historyPagination.pageSize}
+            totalItems={historyPagination.totalItems}
+            totalPages={historyPagination.totalPages}
+            onPageChange={historyPagination.setPage}
+            onPageSizeChange={historyPagination.setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

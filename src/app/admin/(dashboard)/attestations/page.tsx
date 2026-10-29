@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Attestation = {
   id: string;
@@ -46,6 +48,7 @@ export default function AdminAttestationsPage() {
   const [updating, setUpdating] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(items);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,7 +136,7 @@ export default function AdminAttestationsPage() {
                 </td>
               </tr>
             ) : items.length ? (
-              items.map((item) => (
+              pagination.pageItems.map((item) => (
                 <tr key={item.id} className="border-t align-top">
                   <td className="whitespace-nowrap p-3 font-mono text-xs">{item.number}</td>
                   <td className="p-3">
@@ -184,6 +187,14 @@ export default function AdminAttestationsPage() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </div>
   );
 }

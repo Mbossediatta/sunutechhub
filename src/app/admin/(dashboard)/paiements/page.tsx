@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, LoaderCircle, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type Payment = {
   id: string;
@@ -163,6 +165,7 @@ export default function AdminPaiementsPage() {
       }),
     [payments, search, status],
   );
+  const pagination = usePagination(filtered);
 
   const exportCsv = () => {
     const columns = [
@@ -483,13 +486,13 @@ export default function AdminPaiementsPage() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Input
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => { setSearch(event.target.value); pagination.setPage(1); }}
           placeholder="Rechercher membre, cours ou référence"
           className="rounded-xl"
         />
         <select
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => { setStatus(event.target.value); pagination.setPage(1); }}
           className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
         >
           <option value="ALL">Tous les statuts</option>
@@ -547,7 +550,7 @@ export default function AdminPaiementsPage() {
                 </td>
               </tr>
             ) : filtered.length ? (
-              filtered.map((payment) => (
+              pagination.pageItems.map((payment) => (
                 <tr key={payment.id} className="border-t align-top">
                   <td className="p-3">
                     <p className="font-medium">{payment.user.name}</p>
@@ -634,6 +637,14 @@ export default function AdminPaiementsPage() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        totalItems={pagination.totalItems}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
       <p className="text-xs text-muted-foreground">
         Toute confirmation manuelle exige la vérification préalable du paiement
         dans PayTech et en conserve la trace.

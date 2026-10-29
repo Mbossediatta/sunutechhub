@@ -13,7 +13,6 @@ const links = {
   Communauté: [
     { label: "À propos",    href: "/a-propos" },
     { label: "Règles",      href: "/regles" },
-    { label: "Mentors",     href: "/mentors" },
   ],
   Compte: [
     { label: "Inscription", href: "/inscription" },

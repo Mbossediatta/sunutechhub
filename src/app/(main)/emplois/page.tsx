@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { BriefcaseBusiness, Clock, LoaderCircle, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 type JobOffer = {
   id: string;
@@ -55,6 +57,7 @@ export default function EmploisPage() {
     () => jobs.filter((job) => typeFilter === "Tous" || typeNames[job.type] === typeFilter),
     [jobs, typeFilter],
   );
+  const pagination = usePagination(visibleJobs);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -65,7 +68,7 @@ export default function EmploisPage() {
       </header>
       <div className="mb-5 flex flex-wrap gap-2">
         {["Tous", "Emploi", "Stage", "Mission"].map((item) => (
-          <button key={item} aria-pressed={typeFilter === item} onClick={() => setTypeFilter(item)}
+          <button key={item} aria-pressed={typeFilter === item} onClick={() => { setTypeFilter(item); pagination.setPage(1); }}
             className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${typeFilter === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"}`}>
             {item}
           </button>
@@ -76,7 +79,7 @@ export default function EmploisPage() {
         <div className="flex justify-center rounded-2xl border bg-card p-10"><LoaderCircle className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : visibleJobs.length ? (
         <div className="flex flex-col gap-3">
-          {visibleJobs.map((job) => (
+          {pagination.pageItems.map((job) => (
             <article key={job.id} className="rounded-2xl border bg-card p-5">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><BriefcaseBusiness className="h-5 w-5" /></span>
@@ -101,6 +104,14 @@ export default function EmploisPage() {
               </div>
             </article>
           ))}
+          <PaginationControls
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
         </div>
       ) : (
         <div className="rounded-2xl border bg-card p-10 text-center">
