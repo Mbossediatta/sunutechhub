@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import { Public } from '../common/decorators/public.decorator.js';
@@ -15,6 +24,14 @@ export class AttestationsController {
   @Get('mine')
   listMine(@Req() request: AuthenticatedRequest) {
     return this.attestations.listMine(request.user.id);
+  }
+
+  @Post('free-course/:courseId')
+  issueFreeCourse(
+    @Param('courseId') courseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.attestations.issueFreeCourse(request.user.id, courseId);
   }
 
   @Public()

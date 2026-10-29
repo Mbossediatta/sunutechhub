@@ -1,4 +1,10 @@
-import { IsEmail, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdatePlatformSettingsDto {
   @IsOptional()
@@ -20,4 +26,9 @@ export class UpdatePlatformSettingsDto {
   @IsUrl({ protocols: ['https'], require_protocol: true })
   @MaxLength(2048)
   websiteUrl?: string | null;
+
+  @IsOptional()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(2048)
+  attestationSignatureUrl?: string | null;
 }

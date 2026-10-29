@@ -11,10 +11,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
-  { href: "/questions",  label: "Questions" },
-  { href: "/cours",      label: "Cours" },
-  { href: "/projets",    label: "Projets" },
-  { href: "/emplois",    label: "Emplois" },
+  { href: "/questions", label: "Questions" },
+  { href: "/cours", label: "Cours" },
+  { href: "/astuces", label: "Astuces" },
+  { href: "/projets", label: "Projets" },
+  { href: "/emplois", label: "Emplois" },
   { href: "/evenements", label: "Événements" },
 ];
 
@@ -25,15 +26,22 @@ function ThemeToggle() {
     void Promise.resolve().then(() => setMounted(true));
   }, []);
 
-  if (!mounted) return <div className="h-10 w-10 rounded-xl opacity-0" aria-hidden />;
+  if (!mounted)
+    return <div className="h-10 w-10 rounded-xl opacity-0" aria-hidden />;
 
   return (
     <Button
-      variant="ghost" size="icon" className="rounded-xl"
+      variant="ghost"
+      size="icon"
+      className="rounded-xl"
       aria-label={resolvedTheme === "dark" ? "Thème clair" : "Thème sombre"}
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
-      {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {resolvedTheme === "dark" ? (
+        <Sun className="h-4 w-4" />
+      ) : (
+        <Moon className="h-4 w-4" />
+      )}
     </Button>
   );
 }
@@ -44,7 +52,11 @@ function HeaderNav() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; role: "MEMBER" | "ADMIN" } | null>(null);
+  const [user, setUser] = useState<{
+    id: string;
+    name: string;
+    role: "MEMBER" | "ADMIN";
+  } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
   const [branding, setBranding] = useState({
@@ -96,47 +108,57 @@ function HeaderNav() {
 
   useEffect(() => {
     void Promise.all([
-      fetch("/api/platform-settings", { cache: "no-store" }).then(async (response) => {
-        if (!response.ok) return;
-        const result: unknown = await response.json();
-        if (result && typeof result === "object") {
-          const settings = result as { platformName?: unknown; logoUrl?: unknown };
-          setBranding({
-            platformName: typeof settings.platformName === "string" && settings.platformName
-              ? settings.platformName
-              : "Sunu Tech Hub",
-            logoUrl: typeof settings.logoUrl === "string" && settings.logoUrl
-              ? settings.logoUrl
-              : "/logo-sunutech.png",
-          });
-        }
-      }),
-      fetch("/api/announcements", { cache: "no-store" }).then(async (response) => {
-        if (!response.ok) return;
-        const result: unknown = await response.json();
-        if (Array.isArray(result) && result.length > 0) {
-          const first = result[0];
-          if (
-            first &&
-            typeof first === "object" &&
-            "id" in first &&
-            typeof first.id === "string" &&
-            "title" in first &&
-            typeof first.title === "string" &&
-            "body" in first &&
-            typeof first.body === "string" &&
-            "link" in first &&
-            (typeof first.link === "string" || first.link === null)
-          ) {
-            setAnnouncement({
-              id: first.id,
-              title: first.title,
-              body: first.body,
-              link: first.link,
+      fetch("/api/platform-settings", { cache: "no-store" }).then(
+        async (response) => {
+          if (!response.ok) return;
+          const result: unknown = await response.json();
+          if (result && typeof result === "object") {
+            const settings = result as {
+              platformName?: unknown;
+              logoUrl?: unknown;
+            };
+            setBranding({
+              platformName:
+                typeof settings.platformName === "string" &&
+                settings.platformName
+                  ? settings.platformName
+                  : "Sunu Tech Hub",
+              logoUrl:
+                typeof settings.logoUrl === "string" && settings.logoUrl
+                  ? settings.logoUrl
+                  : "/logo-sunutech.png",
             });
           }
-        }
-      }),
+        },
+      ),
+      fetch("/api/announcements", { cache: "no-store" }).then(
+        async (response) => {
+          if (!response.ok) return;
+          const result: unknown = await response.json();
+          if (Array.isArray(result) && result.length > 0) {
+            const first = result[0];
+            if (
+              first &&
+              typeof first === "object" &&
+              "id" in first &&
+              typeof first.id === "string" &&
+              "title" in first &&
+              typeof first.title === "string" &&
+              "body" in first &&
+              typeof first.body === "string" &&
+              "link" in first &&
+              (typeof first.link === "string" || first.link === null)
+            ) {
+              setAnnouncement({
+                id: first.id,
+                title: first.title,
+                body: first.body,
+                link: first.link,
+              });
+            }
+          }
+        },
+      ),
     ]).catch(() => {
       // The public header keeps its local branding if the settings service is unavailable.
     });
@@ -145,7 +167,8 @@ function HeaderNav() {
   useEffect(() => {
     const handleAuthChange = () => void refreshSession();
     window.addEventListener("sth:auth-changed", handleAuthChange);
-    return () => window.removeEventListener("sth:auth-changed", handleAuthChange);
+    return () =>
+      window.removeEventListener("sth:auth-changed", handleAuthChange);
   }, [refreshSession]);
 
   const signOut = async () => {
@@ -168,12 +191,15 @@ function HeaderNav() {
   }, []);
 
   return (
-    <header className={cn(
-      "sticky top-0 z-50 w-full border-b transition-all duration-200",
-      scrolled ? "bg-background/95 backdrop-blur-md shadow-sm" : "bg-background/80 backdrop-blur-sm"
-    )}>
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full border-b transition-all duration-200",
+        scrolled
+          ? "bg-background/95 backdrop-blur-md shadow-sm"
+          : "bg-background/80 backdrop-blur-sm",
+      )}
+    >
       <div className="mx-auto max-w-6xl px-3 sm:px-6 flex h-16 items-center gap-2 sm:gap-4">
-
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
           <Image
@@ -189,15 +215,21 @@ function HeaderNav() {
         </Link>
 
         {/* Nav desktop */}
-        <nav className="hidden md:flex items-center gap-0.5 ml-4" aria-label="Navigation principale">
+        <nav
+          className="hidden md:flex items-center gap-0.5 ml-4"
+          aria-label="Navigation principale"
+        >
           {navLinks.map((l) => (
-            <Link key={l.href} href={l.href}
+            <Link
+              key={l.href}
+              href={l.href}
               className={cn(
                 "relative px-3.5 py-2 rounded-xl text-sm font-medium transition-colors duration-150",
                 pathname === l.href
                   ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}>
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
               {l.label}
               {pathname === l.href && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
@@ -210,35 +242,70 @@ function HeaderNav() {
 
         {/* Actions desktop */}
         <div className="hidden md:flex items-center gap-1.5">
-          <Button variant="ghost" size="icon" className="rounded-xl" aria-label="Rechercher">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-xl"
+            aria-label="Rechercher"
+          >
             <Search className="h-4 w-4" />
           </Button>
           <ThemeToggle />
           <div className="w-px h-5 bg-border mx-1" />
-          {authChecked && !authError && (user ? (
-            <>
-              {user.role === "ADMIN" && (
-                <Button variant="ghost" size="sm" className="rounded-xl" asChild>
-                  <Link href="/admin">Administration</Link>
+          {authChecked &&
+            !authError &&
+            (user ? (
+              <>
+                {user.role === "ADMIN" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-xl"
+                    asChild
+                  >
+                    <Link href="/admin">Administration</Link>
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-xl"
+                  asChild
+                >
+                  <Link href="/profil">
+                    <UserRound className="mr-1.5 h-4 w-4" />
+                    {user.name}
+                  </Link>
                 </Button>
-              )}
-              <Button variant="secondary" size="sm" className="rounded-xl" asChild>
-                <Link href="/profil"><UserRound className="mr-1.5 h-4 w-4" />{user.name}</Link>
-              </Button>
-              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => void signOut()} aria-label="Se déconnecter">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </>
-          ) : authChecked && !authError ? (
-            <>
-              <Button variant="ghost" size="sm" className="rounded-xl" asChild>
-                <Link href="/connexion">Connexion</Link>
-              </Button>
-              <Button size="sm" className="rounded-xl shadow-sm shadow-primary/20" asChild>
-                <Link href="/inscription">S&apos;inscrire</Link>
-              </Button>
-            </>
-          ) : null)}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl"
+                  onClick={() => void signOut()}
+                  aria-label="Se déconnecter"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            ) : authChecked && !authError ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-xl"
+                  asChild
+                >
+                  <Link href="/connexion">Connexion</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  className="rounded-xl shadow-sm shadow-primary/20"
+                  asChild
+                >
+                  <Link href="/inscription">S&apos;inscrire</Link>
+                </Button>
+              </>
+            ) : null)}
         </div>
 
         {/* Actions mobile */}
@@ -254,10 +321,6 @@ function HeaderNav() {
             >
               <LogOut className="h-4 w-4" />
             </Button>
-          ) : authChecked && !authError ? (
-            <Button size="sm" className="h-9 rounded-xl px-3 text-xs" asChild>
-              <Link href="/inscription">S&apos;inscrire</Link>
-            </Button>
           ) : null}
           <Button
             variant="ghost"
@@ -268,7 +331,11 @@ function HeaderNav() {
             aria-controls="mobile-primary-navigation"
             onClick={() => setMobileMenuOpen((open) => !open)}
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileMenuOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Menu className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -342,12 +409,17 @@ function HeaderNav() {
       {announcement && (
         <div className="border-t bg-primary px-4 py-2 text-center text-sm text-primary-foreground">
           {announcement.link ? (
-            <a href={announcement.link} className="font-medium underline-offset-4 hover:underline">
-              <span className="font-semibold">{announcement.title} :</span> {announcement.body}
+            <a
+              href={announcement.link}
+              className="font-medium underline-offset-4 hover:underline"
+            >
+              <span className="font-semibold">{announcement.title} :</span>{" "}
+              {announcement.body}
             </a>
           ) : (
             <p>
-              <span className="font-semibold">{announcement.title} :</span> {announcement.body}
+              <span className="font-semibold">{announcement.title} :</span>{" "}
+              {announcement.body}
             </p>
           )}
         </div>
@@ -359,9 +431,11 @@ function HeaderNav() {
 // Export principal wrappé dans Suspense
 export function SiteHeader() {
   return (
-    <Suspense fallback={
-      <header className="sticky top-0 z-50 w-full border-b bg-background/80 h-16" />
-    }>
+    <Suspense
+      fallback={
+        <header className="sticky top-0 z-50 w-full border-b bg-background/80 h-16" />
+      }
+    >
       <HeaderNav />
     </Suspense>
   );

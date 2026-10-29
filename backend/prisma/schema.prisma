@@ -185,6 +185,20 @@ model CourseContent {
   @@index([courseId, published, position])
 }
 
+model Tip {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  description   String   @default("")
+  htmlContent   String   @db.Text
+  narrationPath String?
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([published, createdAt])
+}
+
 model LessonProgress {
   id          String        @id @default(cuid())
   userId      String
@@ -379,7 +393,8 @@ model Attestation {
   number            String            @unique
   userId            String
   courseId          String
-  paymentId         String            @unique
+  paymentId         String?           @unique
+  freeCourseKey     String?           @unique
   status            AttestationStatus @default(ACTIVE)
   displayNamePublic Boolean           @default(false)
   issuedAt          DateTime          @default(now())
@@ -388,7 +403,7 @@ model Attestation {
   revokedById       String?
   user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   course            Course            @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  payment           Payment?          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   revokedBy         User?             @relation("AttestationRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([userId, issuedAt])

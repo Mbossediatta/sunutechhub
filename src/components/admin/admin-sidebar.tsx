@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   ScrollText,
   ShieldCheck,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ const nav = [
       { href: "/admin/membres", label: "Membres", icon: Users },
       { href: "/admin/questions", label: "Questions", icon: MessageSquare },
       { href: "/admin/cours", label: "Cours", icon: BookOpen },
+      { href: "/admin/astuces", label: "Astuces", icon: Lightbulb },
       { href: "/admin/tarifs", label: "Tarifs", icon: BadgeDollarSign },
       { href: "/admin/paiements", label: "Paiements", icon: CreditCard },
       { href: "/admin/projets", label: "Projets", icon: ClipboardCheck },

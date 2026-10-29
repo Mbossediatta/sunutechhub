@@ -16,6 +16,6 @@ import { SupabaseCourseStorageService } from './supabase-course-storage.service.
     CourseContentMailerService,
     SupabaseCourseStorageService,
   ],
-  exports: [CoursesService],
+  exports: [CoursesService, SupabaseCourseStorageService],
 })
 export class CoursesModule {}

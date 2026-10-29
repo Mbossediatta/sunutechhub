@@ -1,13 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  CreateAnnouncementDto,
-} from './dto/create-announcement.dto.js';
-import type {
-  UpdateAnnouncementDto,
-} from './dto/update-announcement.dto.js';
-import type {
-  UpdatePlatformSettingsDto,
-} from './dto/update-platform-settings.dto.js';
+import type { CreateAnnouncementDto } from './dto/create-announcement.dto.js';
+import type { UpdateAnnouncementDto } from './dto/update-announcement.dto.js';
+import type { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { queueNewsletterCampaign } from './newsletter.service.js';
 
@@ -16,6 +10,7 @@ const DEFAULT_SETTINGS = {
   contactEmail: '',
   logoUrl: '',
   websiteUrl: '',
+  attestationSignatureUrl: '',
 } as const;
 
 @Injectable()
@@ -30,7 +25,9 @@ export class PlatformSettingsService {
         },
       },
     });
-    const saved = Object.fromEntries(records.map(({ key, value }) => [key, value]));
+    const saved = Object.fromEntries(
+      records.map(({ key, value }) => [key, value]),
+    );
     return { ...DEFAULT_SETTINGS, ...saved };
   }
 
@@ -76,7 +73,9 @@ export class PlatformSettingsService {
   }
 
   async updateAnnouncement(id: string, input: UpdateAnnouncementDto) {
-    const current = await this.prisma.announcement.findUnique({ where: { id } });
+    const current = await this.prisma.announcement.findUnique({
+      where: { id },
+    });
     if (!current) throw new NotFoundException('Annonce introuvable.');
     const data = {
       title: input.title?.trim(),
@@ -95,7 +94,8 @@ export class PlatformSettingsService {
           const announcement = await transaction.announcement.findUnique({
             where: { id },
           });
-          if (!announcement) throw new NotFoundException('Annonce introuvable.');
+          if (!announcement)
+            throw new NotFoundException('Annonce introuvable.');
           return { ...announcement, newsletterQueued: 0 };
         }
 
@@ -121,7 +121,9 @@ export class PlatformSettingsService {
   }
 
   async deleteAnnouncement(id: string) {
-    const current = await this.prisma.announcement.findUnique({ where: { id } });
+    const current = await this.prisma.announcement.findUnique({
+      where: { id },
+    });
     if (!current) throw new NotFoundException('Annonce introuvable.');
     await this.prisma.announcement.delete({ where: { id } });
     return { success: true };

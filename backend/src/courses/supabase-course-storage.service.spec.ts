@@ -62,12 +62,7 @@ describe('SupabaseCourseStorageService', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      storage.createSignedUpload(
-        'course-1',
-        'support.pdf',
-        100,
-        'text/plain',
-      ),
+      storage.createSignedUpload('course-1', 'support.pdf', 100, 'text/plain'),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -93,7 +88,9 @@ describe('SupabaseCourseStorageService', () => {
       'application/pdf',
     );
 
-    expect(result.path).toMatch(/^courses\/course-1\/[0-9a-f-]+-support_de_cours\.pdf$/i);
+    expect(result.path).toMatch(
+      /^courses\/course-1\/[0-9a-f-]+-support_de_cours\.pdf$/i,
+    );
     expect(result).toEqual({
       path: expect.stringMatching(
         /^courses\/course-1\/[0-9a-f-]+-support_de_cours\.pdf$/i,
@@ -111,6 +108,73 @@ describe('SupabaseCourseStorageService', () => {
       }),
     );
   });
+
+  it.each([
+    ['audio.mp3', 'audio/mpeg', '.mp3'],
+    ['video.mp4', 'video/mp4', '.mp4'],
+  ])(
+    'creates signed narration uploads for %s',
+    async (filename, contentType, extension) => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            url: '/object/upload/sign/course-files/tips/audio.mp3?token=signed-upload-token',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await storage.createSignedTipNarrationUpload(
+        filename,
+        1024,
+        contentType,
+      );
+
+      expect(result.path).toMatch(/^tips\/[0-9a-f-]+-/i);
+      expect(result.path.toLowerCase().endsWith(extension)).toBe(true);
+      expect(result.contentType).toBe(contentType);
+    },
+  );
+
+  it.each([
+    [
+      'audio.mp3',
+      'audio/mpeg',
+      new Uint8Array([0x49, 0x44, 0x33]),
+      'bytes 0-2/1024',
+    ],
+    [
+      'video.mp4',
+      'video/mp4',
+      new Uint8Array([
+        0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32,
+      ]),
+      'bytes 0-11/1024',
+    ],
+  ])(
+    'verifies a valid narration signature for %s',
+    async (filename, contentType, signature, contentRange) => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(signature, {
+          status: 206,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Range': contentRange,
+          },
+        }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const path = `tips/123e4567-e89b-12d3-a456-426614174000-${filename}`;
+      await expect(
+        storage.verifyUploadedTipNarration(path, 1024, contentType),
+      ).resolves.toBe(`storage://${path}`);
+    },
+  );
 
   it('creates a signed upload for a banner image in the dedicated bucket', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -132,9 +196,7 @@ describe('SupabaseCourseStorageService', () => {
       'image/png',
     );
 
-    expect(result.path).toMatch(
-      /^course-banners\/[0-9a-f-]+-banniere\.png$/i,
-    );
+    expect(result.path).toMatch(/^course-banners\/[0-9a-f-]+-banniere\.png$/i);
     expect(result.contentType).toBe('image/png');
     expect(result.signedUrl).toContain(
       '/storage/v1/object/upload/sign/course-banners/course-banners/',
@@ -161,7 +223,9 @@ describe('SupabaseCourseStorageService', () => {
   it('verifies PNG signature, content type, size, and returns its public URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]),
+        new Uint8Array([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0,
+        ]),
         {
           status: 206,
           headers: {
@@ -254,16 +318,16 @@ describe('SupabaseCourseStorageService', () => {
   });
 
   it('only deletes PDFs stored under the requested course path', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(null, { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     const path =
       'courses/course-1/123e4567-e89b-12d3-a456-426614174000-support.pdf';
 
-    await expect(
-      storage.deleteCoursePdf('course-1', path),
-    ).resolves.toEqual({ deleted: true });
+    await expect(storage.deleteCoursePdf('course-1', path)).resolves.toEqual({
+      deleted: true,
+    });
     await expect(
       storage.deleteCoursePdf('course-2', path),
     ).rejects.toBeInstanceOf(BadRequestException);

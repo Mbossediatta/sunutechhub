@@ -1,0 +1,2 @@
+ALTER TABLE "Tip"
+ALTER COLUMN "narrationPath" DROP NOT NULL;

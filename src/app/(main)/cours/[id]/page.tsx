@@ -92,6 +92,7 @@ export default function CoursDetailPage() {
   const [progress, setProgress] = useState<CourseProgress | null>(null);
   const [progressError, setProgressError] = useState("");
   const [workingProgressId, setWorkingProgressId] = useState("");
+  const [downloadingAttestation, setDownloadingAttestation] = useState(false);
   const contentPagination = usePagination(content);
 
   const loadContent = useCallback(async (courseId: string) => {
@@ -221,7 +222,7 @@ export default function CoursDetailPage() {
   }, [loadContent, loadProgress, loadRegistration, params.id]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const registerFree = async () => {
@@ -298,6 +299,50 @@ export default function CoursDetailPage() {
       );
     } finally {
       setWorkingProgressId("");
+    }
+  };
+
+  const downloadFreeCourseAttestation = async () => {
+    if (!course) return;
+    setDownloadingAttestation(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/attestations/free-course/${encodeURIComponent(course.id)}`,
+        { method: "POST" },
+      );
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de générer l’attestation.";
+        throw new Error(message);
+      }
+      if (
+        !result ||
+        typeof result !== "object" ||
+        !("number" in result) ||
+        typeof result.number !== "string"
+      ) {
+        throw new Error(
+          "La réponse de génération de l’attestation est invalide.",
+        );
+      }
+      const link = document.createElement("a");
+      link.href = `/api/attestations/${encodeURIComponent(result.number)}/pdf`;
+      link.click();
+    } catch (attestationError) {
+      setError(
+        attestationError instanceof Error
+          ? attestationError.message
+          : "Impossible de générer l’attestation.",
+      );
+    } finally {
+      setDownloadingAttestation(false);
     }
   };
 
@@ -471,80 +516,83 @@ export default function CoursDetailPage() {
                 <>
                   <ol className="mt-4 divide-y">
                     {contentPagination.pageItems.map((item) => {
-                    const Icon =
-                      item.type === "VIDEO"
-                        ? Video
-                        : item.type === "LIVE_SESSION"
-                          ? Radio
-                          : FileText;
-                    const label =
-                      item.type === "VIDEO"
-                        ? "Leçon vidéo"
-                        : item.type === "LIVE_SESSION"
-                          ? "Séance en direct"
-                          : "Support de cours";
-                    const completedAt = progress?.lessons.find(
-                      (lesson) => lesson.id === item.id,
-                    )?.completedAt;
-                    return (
-                      <li
-                        key={item.id}
-                        className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex items-start gap-3">
-                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                          <div>
-                            <p className="font-medium">{item.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {label}
-                              {item.scheduledAt &&
-                                ` · ${new Intl.DateTimeFormat("fr-FR", {
-                                  dateStyle: "long",
-                                  timeStyle: "short",
-                                }).format(new Date(item.scheduledAt))}`}
-                            </p>
-                            {item.description && (
-                              <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                                {item.description}
+                      const Icon =
+                        item.type === "VIDEO"
+                          ? Video
+                          : item.type === "LIVE_SESSION"
+                            ? Radio
+                            : FileText;
+                      const label =
+                        item.type === "VIDEO"
+                          ? "Leçon vidéo"
+                          : item.type === "LIVE_SESSION"
+                            ? "Séance en direct"
+                            : "Support de cours";
+                      const completedAt = progress?.lessons.find(
+                        (lesson) => lesson.id === item.id,
+                      )?.completedAt;
+                      return (
+                        <li
+                          key={item.id}
+                          className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <div>
+                              <p className="font-medium">{item.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {label}
+                                {item.scheduledAt &&
+                                  ` · ${new Intl.DateTimeFormat("fr-FR", {
+                                    dateStyle: "long",
+                                    timeStyle: "short",
+                                  }).format(new Date(item.scheduledAt))}`}
                               </p>
-                            )}
+                              {item.description && (
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 sm:ml-7">
-                          <a
-                            href={
-                              item.url.startsWith("storage://")
-                                ? `/api/courses/${encodeURIComponent(course.id)}/content/${encodeURIComponent(item.id)}/file`
-                                : item.url
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                          >
-                            {item.type === "LIVE_SESSION"
-                              ? "Rejoindre la séance"
-                              : "Ouvrir la ressource"}
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={completedAt ? "secondary" : "outline"}
-                            disabled={workingProgressId === item.id}
-                            onClick={() =>
-                              void toggleLessonCompletion(item.id, !completedAt)
-                            }
-                          >
-                            {workingProgressId === item.id ? (
-                              <LoaderCircle className="h-4 w-4 animate-spin" />
-                            ) : completedAt ? (
-                              <CheckCircle2 className="h-4 w-4" />
-                            ) : null}
-                            {completedAt ? "Terminée" : "Marquer terminée"}
-                          </Button>
-                        </div>
-                      </li>
-                    );
+                          <div className="flex flex-wrap items-center gap-3 sm:ml-7">
+                            <a
+                              href={
+                                item.url.startsWith("storage://")
+                                  ? `/api/courses/${encodeURIComponent(course.id)}/content/${encodeURIComponent(item.id)}/file`
+                                  : item.url
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                            >
+                              {item.type === "LIVE_SESSION"
+                                ? "Rejoindre la séance"
+                                : "Ouvrir la ressource"}
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={completedAt ? "secondary" : "outline"}
+                              disabled={workingProgressId === item.id}
+                              onClick={() =>
+                                void toggleLessonCompletion(
+                                  item.id,
+                                  !completedAt,
+                                )
+                              }
+                            >
+                              {workingProgressId === item.id ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                              ) : completedAt ? (
+                                <CheckCircle2 className="h-4 w-4" />
+                              ) : null}
+                              {completedAt ? "Terminée" : "Marquer terminée"}
+                            </Button>
+                          </div>
+                        </li>
+                      );
                     })}
                   </ol>
                   <PaginationControls
@@ -592,6 +640,26 @@ export default function CoursDetailPage() {
                       {progressError}
                     </p>
                   )}
+                  {course.isFree &&
+                    registration &&
+                    progress &&
+                    progress.total > 0 &&
+                    progress.completed === progress.total && (
+                      <div className="mt-4">
+                        <Button
+                          type="button"
+                          disabled={downloadingAttestation}
+                          onClick={() => void downloadFreeCourseAttestation()}
+                        >
+                          {downloadingAttestation ? (
+                            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <BadgeCheck className="mr-2 h-4 w-4" />
+                          )}
+                          Télécharger mon attestation gratuite
+                        </Button>
+                      </div>
+                    )}
                   <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <CalendarDays className="h-3.5 w-3.5" />
                     Les liens de séance apparaissent ici pour les membres

@@ -1,10 +1,14 @@
 import {
+  BadGatewayException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AttestationStatus } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -56,6 +60,7 @@ export class AttestationsService {
           'Aucune attestation ne correspond à ce numéro. Vérifie le numéro ou contacte-nous.',
       };
     }
+
     if (attestation.status === AttestationStatus.REVOKED) {
       return {
         valid: false,
@@ -74,6 +79,72 @@ export class AttestationsService {
       issuedAt: attestation.issuedAt,
       notice: ATTESTATION_NOTICE,
     };
+  }
+
+  async issueFreeCourse(userId: string, courseId: string) {
+    return this.prisma.$transaction(async (transaction) => {
+      const course = await transaction.course.findFirst({
+        where: { id: courseId, active: true },
+        select: { id: true, isFree: true },
+      });
+      if (!course) throw new NotFoundException('Cours introuvable.');
+      if (!course.isFree) {
+        throw new ForbiddenException(
+          'Une attestation gratuite est réservée aux cours gratuits.',
+        );
+      }
+
+      const now = new Date();
+      const registration = await transaction.courseRegistration.findUnique({
+        where: { userId_courseId: { userId, courseId } },
+        select: { startsAt: true, endsAt: true },
+      });
+      if (
+        !registration ||
+        (registration.startsAt !== null && registration.startsAt > now) ||
+        (registration.endsAt !== null && registration.endsAt <= now)
+      ) {
+        throw new ForbiddenException(
+          'Inscris-toi à ce cours pour demander ton attestation.',
+        );
+      }
+
+      const contents = await transaction.courseContent.findMany({
+        where: { courseId, published: true },
+        select: { id: true },
+      });
+      if (!contents.length) {
+        throw new BadRequestException(
+          'Ce cours ne contient pas encore de leçons publiées.',
+        );
+      }
+
+      const completed = await transaction.lessonProgress.count({
+        where: {
+          userId,
+          courseId,
+          contentId: { in: contents.map(({ id }) => id) },
+        },
+      });
+      if (completed !== contents.length) {
+        throw new ForbiddenException(
+          'Termine tous les contenus du cours avant de télécharger ton attestation.',
+        );
+      }
+
+      const freeCourseKey = `${userId}:${courseId}`;
+      return transaction.attestation.upsert({
+        where: { freeCourseKey },
+        update: {},
+        create: {
+          number: `STH-${now.getUTCFullYear()}-${randomBytes(6).toString('hex').toUpperCase()}`,
+          userId,
+          courseId,
+          freeCourseKey,
+        },
+        select: { number: true, issuedAt: true },
+      });
+    });
   }
 
   async updateVisibility(
@@ -168,6 +239,10 @@ export class AttestationsService {
       width: 180,
     });
 
+    const [signature, logo] = await Promise.all([
+      this.loadAttestationSignature(),
+      this.loadPlatformLogo(),
+    ]);
     const document = await PDFDocument.create();
     const page = document.addPage([842, 595]);
     const regular = await document.embedFont(StandardFonts.Helvetica);
@@ -186,95 +261,374 @@ export class AttestationsService {
       borderColor: cobalt,
       borderWidth: 2,
     });
-    page.drawRectangle({ x: 22, y: 22, width: 798, height: 6, color: violet });
-    page.drawText('Sunu Tech Hub', {
-      x: 48,
-      y: 526,
+    page.drawRectangle({
+      x: 22,
+      y: 22,
+      width: 798,
+      height: 7,
+      color: violet,
+    });
+    page.drawRectangle({
+      x: 38,
+      y: 38,
+      width: 766,
+      height: 519,
+      borderColor: rgb(224 / 255, 230 / 255, 244 / 255),
+      borderWidth: 1,
+    });
+    if (logo) {
+      const logoImage =
+        logo.contentType === 'image/png'
+          ? await document.embedPng(logo.bytes)
+          : await document.embedJpg(logo.bytes);
+      const scale = Math.min(112 / logoImage.width, 58 / logoImage.height);
+      page.drawImage(logoImage, {
+        x: 52,
+        y: 488,
+        width: logoImage.width * scale,
+        height: logoImage.height * scale,
+      });
+    } else {
+      page.drawText('Sunu Tech Hub', {
+        x: 52,
+        y: 514,
+        font: bold,
+        size: 17,
+        color: navy,
+      });
+    }
+    page.drawText('FORMATION · APPRENTISSAGE · RÉUSSITE', {
+      x: 498,
+      y: 524,
       font: bold,
-      size: 17,
+      size: 8,
+      color: muted,
+    });
+    page.drawLine({
+      start: { x: 52, y: 474 },
+      end: { x: 790, y: 474 },
+      thickness: 1,
+      color: rgb(224 / 255, 230 / 255, 244 / 255),
+    });
+    const heading = attestation.paymentId
+      ? 'ATTESTATION DE RÉUSSITE'
+      : 'ATTESTATION DE FIN DE FORMATION';
+    const headingSize = 23;
+    page.drawText(heading, {
+      x: (842 - bold.widthOfTextAtSize(heading, headingSize)) / 2,
+      y: 430,
+      font: bold,
+      size: headingSize,
+      color: cobalt,
+    });
+    page.drawText('DÉCERNÉE À', {
+      x: 52,
+      y: 382,
+      font: bold,
+      size: 9,
+      color: violet,
+    });
+    const memberName = attestation.user.name;
+    const nameSize = 27;
+    page.drawText(memberName, {
+      x: 52,
+      y: 344,
+      font: bold,
+      size: nameSize,
       color: navy,
+      maxWidth: 730,
+      lineHeight: nameSize + 4,
     });
-    page.drawText('ATTESTATION DE RÉUSSITE', {
-      x: 48,
-      y: 474,
+    page.drawLine({
+      start: { x: 52, y: 328 },
+      end: { x: 310, y: 328 },
+      thickness: 2,
+      color: violet,
+    });
+    page.drawText(
+      attestation.paymentId
+        ? 'a suivi et réussi le cours'
+        : 'a terminé avec succès le cours',
+      {
+        x: 52,
+        y: 301,
+        font: regular,
+        size: 12,
+        color: muted,
+      },
+    );
+    drawWrapped(page, attestation.course.title, 52, 272, 700, bold, 20, navy);
+    page.drawRectangle({
+      x: 52,
+      y: 184,
+      width: 738,
+      height: 47,
+      color: rgb(246 / 255, 248 / 255, 255 / 255),
+      borderColor: rgb(230 / 255, 234 / 255, 247 / 255),
+      borderWidth: 1,
+    });
+    page.drawText('COMPÉTENCES / THÈMES ABORDÉS', {
+      x: 66,
+      y: 211,
       font: bold,
-      size: 26,
-      color: cobalt,
-    });
-    page.drawText('Sunu Tech Hub atteste que', {
-      x: 48,
-      y: 431,
-      font: regular,
-      size: 14,
-      color: muted,
-    });
-    drawWrapped(page, attestation.user.name, 48, 390, 600, bold, 26, navy);
-    page.drawText('a suivi et réussi le cours', {
-      x: 48,
-      y: 348,
-      font: regular,
-      size: 14,
-      color: muted,
-    });
-    drawWrapped(page, attestation.course.title, 48, 316, 600, bold, 19, navy);
-    page.drawText('Compétences validées', {
-      x: 48,
-      y: 273,
-      font: bold,
-      size: 12,
-      color: cobalt,
+      size: 8,
+      color: violet,
     });
     drawWrapped(
       page,
       attestation.course.subjects.slice(0, 6).join(' · ') ||
         attestation.course.title,
-      48,
-      251,
-      575,
+      66,
+      195,
+      700,
       regular,
-      11,
+      9,
       navy,
     );
-    page.drawText(
-      `Projet rendu : ${attestation.payment.project?.title ?? 'Projet validé'}`,
-      {
-        x: 48,
-        y: 209,
-        font: regular,
-        size: 11,
-        color: navy,
-        maxWidth: 620,
-      },
-    );
+    if (attestation.payment) {
+      page.drawText(
+        `Projet rendu : ${attestation.payment.project?.title ?? 'Projet validé'}`,
+        {
+          x: 52,
+          y: 164,
+          font: regular,
+          size: 9,
+          color: navy,
+          maxWidth: 620,
+        },
+      );
+    }
     page.drawText(
       `Délivrée le ${new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Africa/Dakar' }).format(attestation.issuedAt)} · Durée du cours : ${attestation.course.duration || 'Non renseignée'}`,
-      { x: 48, y: 179, font: regular, size: 10, color: muted, maxWidth: 650 },
+      {
+        x: 52,
+        y: attestation.payment ? 142 : 160,
+        font: regular,
+        size: 9,
+        color: muted,
+        maxWidth: 650,
+      },
     );
     page.drawText(`Formateur : ${attestation.course.instructorName}`, {
-      x: 48,
-      y: 145,
+      x: 52,
+      y: attestation.payment ? 119 : 137,
       font: bold,
-      size: 11,
+      size: 9,
       color: navy,
     });
     page.drawText(`Numéro unique : ${attestation.number}`, {
-      x: 48,
-      y: 121,
+      x: 52,
+      y: attestation.payment ? 101 : 119,
       font: regular,
-      size: 10,
+      size: 8,
       color: muted,
     });
-    page.drawImage(qrImage, { x: 676, y: 112, width: 112, height: 112 });
+    page.drawImage(qrImage, { x: 678, y: 104, width: 88, height: 88 });
     page.drawText('Vérifier cette attestation', {
-      x: 665,
-      y: 96,
+      x: 675,
+      y: 94,
       font: regular,
-      size: 9,
+      size: 7,
       color: cobalt,
     });
-    drawWrapped(page, ATTESTATION_NOTICE, 48, 64, 730, regular, 9, navy);
+    if (signature) {
+      const signatureImage =
+        signature.contentType === 'image/png'
+          ? await document.embedPng(signature.bytes)
+          : await document.embedJpg(signature.bytes);
+      const scale = Math.min(
+        140 / signatureImage.width,
+        40 / signatureImage.height,
+      );
+      page.drawImage(signatureImage, {
+        x: 52,
+        y: 71,
+        width: signatureImage.width * scale,
+        height: signatureImage.height * scale,
+      });
+      page.drawText('Signature de la formatrice', {
+        x: 52,
+        y: 61,
+        font: regular,
+        size: 8,
+        color: muted,
+      });
+    }
+    drawWrapped(page, ATTESTATION_NOTICE, 52, 47, 580, regular, 7, navy);
 
     return Buffer.from(await document.save());
+  }
+
+  private async loadAttestationSignature() {
+    const setting = await this.prisma.platformSetting.findUnique({
+      where: { key: 'attestationSignatureUrl' },
+      select: { value: true },
+    });
+    if (!setting?.value) return null;
+
+    const configuredSupabaseUrl = this.config.get<string>('SUPABASE_URL');
+    if (!configuredSupabaseUrl) {
+      throw new ServiceUnavailableException(
+        'Le stockage de la signature des attestations n’est pas configuré.',
+      );
+    }
+
+    const bucket = this.config.get<string>(
+      'SUPABASE_COURSE_BANNERS_BUCKET',
+      'course-banners',
+    );
+    let signatureUrl: URL;
+    let supabaseUrl: URL;
+    try {
+      signatureUrl = new URL(setting.value);
+      supabaseUrl = new URL(configuredSupabaseUrl);
+    } catch {
+      throw new BadGatewayException(
+        'L’adresse de la signature des attestations est invalide.',
+      );
+    }
+    const publicPath = `/storage/v1/object/public/${bucket}/course-banners/`;
+    if (
+      signatureUrl.protocol !== 'https:' ||
+      signatureUrl.origin !== supabaseUrl.origin ||
+      !signatureUrl.pathname.startsWith(publicPath)
+    ) {
+      throw new BadGatewayException(
+        'La signature doit provenir du stockage configuré pour les bannières de cours.',
+      );
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(signatureUrl, {
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'Impossible de charger la signature depuis le stockage.',
+      );
+    }
+    if (!response.ok) {
+      throw new BadGatewayException(
+        'Le stockage n’a pas pu fournir la signature de l’attestation.',
+      );
+    }
+
+    const contentType = response.headers.get('content-type')?.split(';')[0];
+    const declaredSize = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredSize) && declaredSize > 1_000_000) {
+      throw new BadGatewayException(
+        'Le fichier de signature dépasse la taille maximale autorisée.',
+      );
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 1_000_000) {
+      throw new BadGatewayException(
+        'Le fichier de signature dépasse la taille maximale autorisée.',
+      );
+    }
+    const validPng =
+      contentType === 'image/png' &&
+      [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every(
+        (byte, index) => bytes[index] === byte,
+      );
+    const validJpeg =
+      contentType === 'image/jpeg' &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff;
+    if (!validPng && !validJpeg) {
+      throw new BadGatewayException(
+        'La signature doit être une image PNG ou JPEG valide.',
+      );
+    }
+    return { bytes, contentType };
+  }
+
+  private async loadPlatformLogo() {
+    const [setting, frontendUrl] = await Promise.all([
+      this.prisma.platformSetting.findUnique({
+        where: { key: 'logoUrl' },
+        select: { value: true },
+      }),
+      Promise.resolve(this.config.get<string>('FRONTEND_URL')),
+    ]);
+    if (!frontendUrl) return null;
+
+    let frontendOrigin: string;
+    try {
+      frontendOrigin = new URL(frontendUrl).origin;
+    } catch {
+      throw new ServiceUnavailableException(
+        'L’adresse publique du site est invalide pour intégrer le logo.',
+      );
+    }
+
+    let logoUrl: URL;
+    try {
+      logoUrl = new URL(setting?.value || '/logo-sunutech.png', frontendUrl);
+    } catch {
+      logoUrl = new URL('/logo-sunutech.png', frontendUrl);
+    }
+    if (
+      logoUrl.origin !== frontendOrigin ||
+      (logoUrl.protocol !== 'https:' &&
+        !(
+          logoUrl.protocol === 'http:' &&
+          ['localhost', '127.0.0.1'].includes(logoUrl.hostname)
+        ))
+    ) {
+      logoUrl = new URL('/logo-sunutech.png', frontendUrl);
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(logoUrl, {
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'Impossible de charger le logo de la plateforme.',
+      );
+    }
+    if (!response.ok) {
+      throw new BadGatewayException(
+        'Le site n’a pas pu fournir le logo pour l’attestation.',
+      );
+    }
+    const contentType = response.headers.get('content-type')?.split(';')[0];
+    const declaredSize = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredSize) && declaredSize > 1_000_000) {
+      throw new BadGatewayException(
+        'Le logo de la plateforme dépasse la taille maximale autorisée.',
+      );
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 1_000_000) {
+      throw new BadGatewayException(
+        'Le logo de la plateforme dépasse la taille maximale autorisée.',
+      );
+    }
+    const validPng =
+      contentType === 'image/png' &&
+      [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every(
+        (byte, index) => bytes[index] === byte,
+      );
+    const validJpeg =
+      contentType === 'image/jpeg' &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff;
+    if (!validPng && !validJpeg) {
+      throw new BadGatewayException(
+        'Le logo doit être une image PNG ou JPEG valide.',
+      );
+    }
+    return { bytes, contentType };
   }
 }
 

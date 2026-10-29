@@ -4,7 +4,10 @@ import { AUTH_COOKIE_NAME } from "@/lib/backend-auth";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
-export async function GET(request: Request, context: RouteContext) {
+async function proxyAttestationRequest(
+  request: Request,
+  context: RouteContext,
+) {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.json(
@@ -20,7 +23,14 @@ export async function GET(request: Request, context: RouteContext) {
     response = await fetch(
       `${baseUrl.replace(/\/+$/, "")}/attestations/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`,
       {
-        headers: { Authorization: `Bearer ${token}` },
+        method: request.method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(request.method === "POST"
+            ? { "Content-Type": "application/json" }
+            : {}),
+        },
+        ...(request.method === "POST" ? { body: await request.text() } : {}),
         cache: "no-store",
         signal: AbortSignal.timeout(20_000),
       },
@@ -48,4 +58,12 @@ export async function GET(request: Request, context: RouteContext) {
         : {}),
     },
   });
+}
+
+export async function GET(request: Request, context: RouteContext) {
+  return proxyAttestationRequest(request, context);
+}
+
+export async function POST(request: Request, context: RouteContext) {
+  return proxyAttestationRequest(request, context);
 }
