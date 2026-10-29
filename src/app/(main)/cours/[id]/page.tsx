@@ -512,7 +512,11 @@ export default function CoursDetailPage() {
                         </div>
                         <div className="flex flex-wrap items-center gap-3 sm:ml-7">
                           <a
-                            href={item.url}
+                            href={
+                              item.url.startsWith("storage://")
+                                ? `/api/courses/${encodeURIComponent(course.id)}/content/${encodeURIComponent(item.id)}/file`
+                                : item.url
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"

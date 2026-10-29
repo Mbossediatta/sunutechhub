@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { CoursesService } from './courses.service.js';
+import { SupabaseCourseStorageService } from './supabase-course-storage.service.js';
 
 describe('CoursesService course content', () => {
   let courses: CoursesService;
@@ -43,6 +44,11 @@ describe('CoursesService course content', () => {
       devise: 'FCFA',
     }),
   };
+  const storage = {
+    isStoragePath: (value: string) => value.startsWith('storage://'),
+    createSignedDownloadUrl: vi.fn(),
+    deleteCoursePdf: vi.fn(),
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -51,6 +57,7 @@ describe('CoursesService course content', () => {
         CoursesService,
         { provide: PrismaService, useValue: prisma },
         { provide: PricingService, useValue: pricing },
+        { provide: SupabaseCourseStorageService, useValue: storage },
       ],
     }).compile();
     courses = module.get(CoursesService);
@@ -86,17 +93,54 @@ describe('CoursesService course content', () => {
       endsAt: null,
     });
     prisma.courseContent.findMany.mockResolvedValue([
-      { id: 'lesson-1', title: 'Première leçon' },
+      {
+        id: 'lesson-1',
+        title: 'Première leçon',
+        url: 'https://example.com/lesson',
+      },
     ]);
 
     await expect(
       courses.listEnrolledContent('member-1', 'course-1'),
-    ).resolves.toEqual([{ id: 'lesson-1', title: 'Première leçon' }]);
+    ).resolves.toEqual([
+      {
+        id: 'lesson-1',
+        title: 'Première leçon',
+        url: 'https://example.com/lesson',
+      },
+    ]);
     expect(prisma.courseContent.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { courseId: 'course-1', published: true },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       }),
+    );
+  });
+
+  it('creates a temporary PDF link only after verifying active course access', async () => {
+    prisma.course.findFirst.mockResolvedValue({ id: 'course-1' });
+    prisma.courseRegistration.findUnique.mockResolvedValue({
+      startsAt: null,
+      endsAt: null,
+    });
+    prisma.courseContent.findFirst.mockResolvedValue({
+      url: 'storage://courses/course-1/file.pdf',
+    });
+    storage.createSignedDownloadUrl.mockResolvedValue(
+      'https://storage.example/file.pdf?token=signed',
+    );
+
+    await expect(
+      courses.getEnrolledContentFileUrl('member-1', 'course-1', 'content-1'),
+    ).resolves.toEqual({
+      url: 'https://storage.example/file.pdf?token=signed',
+    });
+    expect(prisma.courseContent.findFirst).toHaveBeenCalledWith({
+      where: { id: 'content-1', courseId: 'course-1', published: true },
+      select: { url: true },
+    });
+    expect(storage.createSignedDownloadUrl).toHaveBeenCalledWith(
+      'storage://courses/course-1/file.pdf',
     );
   });
 

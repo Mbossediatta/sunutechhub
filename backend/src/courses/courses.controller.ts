@@ -18,7 +18,14 @@ import { UpdateCoursePricesDto } from './dto/update-course-prices.dto.js';
 import { CreateCourseContentDto } from './dto/create-course-content.dto.js';
 import { UpdateCourseContentDto } from './dto/update-course-content.dto.js';
 import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto.js';
+import { CreateCoursePdfUploadDto } from './dto/create-course-pdf-upload.dto.js';
+import { DeleteCoursePdfUploadDto } from './dto/delete-course-pdf-upload.dto.js';
+import { VerifyCoursePdfUploadDto } from './dto/verify-course-pdf-upload.dto.js';
+import { CreateCourseBannerUploadDto } from './dto/create-course-banner-upload.dto.js';
+import { VerifyCourseBannerUploadDto } from './dto/verify-course-banner-upload.dto.js';
+import { DeleteCourseBannerUploadDto } from './dto/delete-course-banner-upload.dto.js';
 import { CoursesService } from './courses.service.js';
+import { SupabaseCourseStorageService } from './supabase-course-storage.service.js';
 
 @Controller('courses')
 export class CoursesController {
@@ -51,6 +58,19 @@ export class CoursesController {
     return this.courses.listEnrolledContent(request.user.id, id);
   }
 
+  @Get(':id/content/:contentId/file')
+  getContentFile(
+    @Param('id') id: string,
+    @Param('contentId') contentId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.getEnrolledContentFileUrl(
+      request.user.id,
+      id,
+      contentId,
+    );
+  }
+
   @Get(':id/progress')
   getProgress(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
     return this.courses.getProgress(request.user.id, id);
@@ -75,7 +95,10 @@ export class CoursesController {
 @Roles(UserRole.ADMIN)
 @Controller('admin/courses')
 export class AdminCoursesController {
-  constructor(private readonly courses: CoursesService) {}
+  constructor(
+    private readonly courses: CoursesService,
+    private readonly storage: SupabaseCourseStorageService,
+  ) {}
 
   @Get()
   list() {
@@ -85,6 +108,30 @@ export class AdminCoursesController {
   @Post()
   create(@Body() body: CreateCourseDto) {
     return this.courses.create(body);
+  }
+
+  @Post('banner/upload-url')
+  createBannerUploadUrl(@Body() body: CreateCourseBannerUploadDto) {
+    return this.storage.createSignedBannerUpload(
+      body.filename,
+      body.size,
+      body.contentType,
+    );
+  }
+
+  @Post('banner/verify-upload')
+  async verifyBannerUpload(@Body() body: VerifyCourseBannerUploadDto) {
+    const coverImageUrl = await this.storage.verifyUploadedBanner(
+      body.path,
+      body.size,
+      body.contentType,
+    );
+    return { coverImageUrl };
+  }
+
+  @Delete('banner/upload')
+  deleteTemporaryBannerUpload(@Body() body: DeleteCourseBannerUploadDto) {
+    return this.storage.deleteCourseBanner(body.path);
   }
 
   @Patch(':id')
@@ -104,6 +151,37 @@ export class AdminCoursesController {
   @Get(':courseId/content')
   listContent(@Param('courseId') courseId: string) {
     return this.courses.listAdminContent(courseId);
+  }
+
+  @Post(':courseId/content/upload-url')
+  createPdfUploadUrl(
+    @Param('courseId') courseId: string,
+    @Body() body: CreateCoursePdfUploadDto,
+  ) {
+    return this.storage.createSignedUpload(
+      courseId,
+      body.filename,
+      body.size,
+      body.contentType,
+    );
+  }
+
+  @Post(':courseId/content/verify-upload')
+  verifyPdfUpload(
+    @Param('courseId') courseId: string,
+    @Body() body: VerifyCoursePdfUploadDto,
+  ) {
+    return this.storage
+      .verifyUploadedPdf(courseId, body.path, body.size)
+      .then((path) => ({ path }));
+  }
+
+  @Delete(':courseId/content/upload')
+  deleteTemporaryPdfUpload(
+    @Param('courseId') courseId: string,
+    @Body() body: DeleteCoursePdfUploadDto,
+  ) {
+    return this.storage.deleteCoursePdf(courseId, body.path);
   }
 
   @Post(':courseId/content')

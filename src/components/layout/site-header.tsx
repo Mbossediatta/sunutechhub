@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Search, Menu, X, LogOut, UserRound } from "lucide-react";
+import { Sun, Moon, Search, LogOut, UserRound } from "lucide-react";
 import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,6 @@ function ThemeToggle() {
 function HeaderNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; role: "MEMBER" | "ADMIN" } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -153,7 +152,7 @@ function HeaderNav() {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("La déconnexion a échoué.");
       setUser(null);
-      setMenuOpen(false);
+      window.dispatchEvent(new Event("sth:auth-changed"));
       router.replace("/");
       router.refresh();
     } catch {
@@ -166,10 +165,6 @@ function HeaderNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    void Promise.resolve().then(() => setMenuOpen(false));
-  }, [pathname]);
 
   return (
     <header className={cn(
@@ -187,6 +182,7 @@ function HeaderNav() {
             height={50}
             unoptimized
             priority
+            loading="eager"
             className="h-10 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02]"
           />
         </Link>
@@ -247,53 +243,29 @@ function HeaderNav() {
         {/* Actions mobile */}
         <div className="flex md:hidden items-center gap-1">
           <ThemeToggle />
-          <Button variant="ghost" size="icon" className="rounded-xl"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? "Fermer" : "Menu"}
-            aria-expanded={menuOpen}>
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {user ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl"
+              onClick={() => void signOut()}
+              aria-label="Se déconnecter"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          ) : authChecked && !authError ? (
+            <>
+              <Button variant="ghost" size="sm" className="rounded-xl" asChild>
+                <Link href="/connexion">Connexion</Link>
+              </Button>
+              <Button size="sm" className="rounded-xl" asChild>
+                <Link href="/inscription">S&apos;inscrire</Link>
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 
-      {/* Menu mobile */}
-      {menuOpen && (
-        <div className="md:hidden border-t bg-background px-4 py-4 flex flex-col gap-1 shadow-lg">
-          {navLinks.map((l) => (
-            <Link key={l.href} href={l.href}
-              className={cn(
-                "px-4 py-3 rounded-xl text-sm font-medium transition-colors",
-                pathname === l.href ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted"
-              )}>
-              {l.label}
-            </Link>
-          ))}
-          <div className="border-t my-2" />
-          {authChecked && !authError && (user ? (
-            <>
-              <Link href="/profil" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">
-                <UserRound className="mr-2 inline h-4 w-4" />Mon profil — {user.name}
-              </Link>
-              {user.role === "ADMIN" && (
-                <Link href="/admin" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted">Administration</Link>
-              )}
-              <Button variant="secondary" className="w-full rounded-xl" onClick={() => void signOut()}>
-                <LogOut className="mr-2 h-4 w-4" />Se déconnecter
-              </Button>
-            </>
-          ) : authChecked && !authError ? (
-            <>
-              <Button className="w-full rounded-xl" asChild>
-                <Link href="/inscription">S&apos;inscrire gratuitement</Link>
-              </Button>
-              <Button variant="secondary" className="w-full rounded-xl" asChild>
-                <Link href="/connexion">Connexion</Link>
-              </Button>
-            </>
-          ) : null)}
-          {authError && <p role="status" className="px-4 text-xs text-muted-foreground">{authError}</p>}
-        </div>
-      )}
       {announcement && (
         <div className="border-t bg-primary px-4 py-2 text-center text-sm text-primary-foreground">
           {announcement.link ? (

@@ -14,8 +14,10 @@ const tabs = [
   { href: "/profil",    label: "Profil",    Icon: User },
 ];
 
-function BottomNavInner() {
+function BottomNavInner({ authenticated }: { authenticated: boolean }) {
   const pathname = usePathname();
+
+  if (!authenticated) return null;
 
   return (
     <nav
@@ -60,12 +62,10 @@ function BottomNavInner() {
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ authenticated }: { authenticated: boolean }) {
   return (
-    <Suspense fallback={
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 h-16" />
-    }>
-      <BottomNavInner />
+    <Suspense fallback={null}>
+      <BottomNavInner authenticated={authenticated} />
     </Suspense>
   );
 }

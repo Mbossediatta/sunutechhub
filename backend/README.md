@@ -3,6 +3,11 @@
 API REST NestJS, PostgreSQL et Prisma pour les comptes, les cours, les tarifs,
 les promotions, les paiements PayTech et les attestations de réussite.
 
+Dans le monorepo, ce dossier `backend/` est l’unique backend à installer,
+configurer et démarrer. Utilisez son propre `.env` et lancez les commandes
+depuis ce dossier. Ne démarrez pas la copie historique située à côté du
+monorepo.
+
 ## Prérequis
 
 - Node.js `>= 24.15` (ou une version Node.js 22 compatible avec NestJS 12)
@@ -60,6 +65,28 @@ e-mail est mise en file pour les membres dont l’inscription à ce cours est
 active. L’envoi utilise la configuration SMTP et réessaie automatiquement en
 cas d’échec. Dans l’espace Questions, les membres connectés peuvent aussi aimer
 les réponses et y ajouter des commentaires.
+
+Les supports PDF de cours sont téléversés dans un bucket Supabase Storage privé.
+Créez le bucket `course-files` (ou définissez `SUPABASE_COURSE_FILES_BUCKET`),
+limitez sa taille maximale à 20 Mo et configurez `SUPABASE_URL` ainsi que
+`SUPABASE_SERVICE_ROLE_KEY` dans l’environnement backend. Le rôle service ne
+doit jamais être exposé au frontend. Configurez également
+les origines locale et de production du site dans la configuration CORS Storage.
+Le backend remet au navigateur une URL signée à usage unique, sans exposer la
+clé de service ni nécessiter de clés Supabase dans le frontend.
+L’API vérifie la signature et la taille du PDF; les membres inscrits reçoivent
+un lien de téléchargement privé valable une heure.
+
+Les images de couverture des cours sont facultatives. Pour les téléverser
+depuis l’ordinateur, créez un bucket public `course-banners` (ou configurez
+`SUPABASE_COURSE_BANNERS_BUCKET`) dans Supabase Storage. Le backend émet les
+liens de téléversement signés et vérifie les images JPG, PNG ou WebP de 5 Mo
+maximum. Le rôle service reste exclusivement côté backend. Un lien HTTPS
+existant peut aussi être saisi à la place d’un fichier.
+
+Pour les séances en direct, ajoutez l’URL HTTPS de réunion Google Meet ou Zoom
+et sa date/heure. Les membres inscrits rejoignent la séance via le lien affiché
+dans leur espace cours.
 
 ## Authentification et administration
 

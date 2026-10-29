@@ -1,9 +1,11 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { CourseContentType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
@@ -12,6 +14,7 @@ import { PricingService } from '../pricing/pricing.service.js';
 import type { CreateCourseDto } from './dto/create-course.dto.js';
 import type { UpdateCourseDto } from './dto/update-course.dto.js';
 import type { UpdateCoursePricesDto } from './dto/update-course-prices.dto.js';
+import { SupabaseCourseStorageService } from './supabase-course-storage.service.js';
 
 const COURSE_PRICE_FIELDS = [
   'basePrice',
@@ -25,6 +28,7 @@ export class CoursesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pricing: PricingService,
+    private readonly storage: SupabaseCourseStorageService,
   ) {}
 
   async list() {
@@ -234,7 +238,7 @@ export class CoursesService {
   async listEnrolledContent(userId: string, courseId: string) {
     await this.requireActiveRegistration(userId, courseId);
 
-    return this.prisma.courseContent.findMany({
+    const contents = await this.prisma.courseContent.findMany({
       where: { courseId, published: true },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       select: {
@@ -247,6 +251,33 @@ export class CoursesService {
         position: true,
       },
     });
+    return Promise.all(
+      contents.map(async (content) => ({
+        ...content,
+        url: this.storage.isStoragePath(content.url)
+          ? await this.storage.createSignedDownloadUrl(content.url)
+          : content.url,
+      })),
+    );
+  }
+
+  async getEnrolledContentFileUrl(
+    userId: string,
+    courseId: string,
+    contentId: string,
+  ) {
+    await this.requireActiveRegistration(userId, courseId);
+    const content = await this.prisma.courseContent.findFirst({
+      where: { id: contentId, courseId, published: true },
+      select: { url: true },
+    });
+    if (!content) throw new NotFoundException('Support de cours introuvable.');
+
+    return {
+      url: this.storage.isStoragePath(content.url)
+        ? await this.storage.createSignedDownloadUrl(content.url)
+        : content.url,
+    };
   }
 
   async getProgress(userId: string, courseId: string) {
@@ -348,6 +379,7 @@ export class CoursesService {
     },
   ) {
     await this.requireCourse(courseId);
+    this.validateContentUrl(courseId, input.url);
     const scheduledAt = this.contentSchedule(input.type, input.scheduledAt);
     return this.prisma.$transaction(async (transaction) => {
       const content = await transaction.courseContent.create({
@@ -382,6 +414,7 @@ export class CoursesService {
       published?: boolean;
     },
   ) {
+    if (input.url !== undefined) this.validateContentUrl(courseId, input.url);
     const current = await this.prisma.courseContent.findFirst({
       where: { id: contentId, courseId },
       select: {
@@ -451,13 +484,46 @@ export class CoursesService {
   }
 
   async deleteContent(courseId: string, contentId: string) {
+    const content = await this.prisma.courseContent.findFirst({
+      where: { id: contentId, courseId },
+      select: { url: true },
+    });
+    if (!content) throw new NotFoundException('Contenu du cours introuvable.');
+
     const result = await this.prisma.courseContent.deleteMany({
       where: { id: contentId, courseId },
     });
     if (result.count === 0) {
       throw new NotFoundException('Contenu du cours introuvable.');
     }
-    return { deleted: true };
+
+    let storageCleanupPending = false;
+    if (this.storage.isStoragePath(content.url)) {
+      try {
+        await this.storage.deleteCoursePdf(courseId, content.url);
+      } catch (error) {
+        if (
+          error instanceof BadGatewayException ||
+          error instanceof ServiceUnavailableException
+        ) {
+          storageCleanupPending = true;
+        } else {
+          throw error;
+        }
+      }
+    }
+    return { deleted: true, storageCleanupPending };
+  }
+
+  private validateContentUrl(courseId: string, url: string) {
+    if (
+      this.storage.isStoragePath(url) &&
+      !url.startsWith(`storage://courses/${courseId}/`)
+    ) {
+      throw new BadRequestException(
+        'Le support PDF ne correspond pas à ce cours.',
+      );
+    }
   }
 
   private async requireCourse(courseId: string) {

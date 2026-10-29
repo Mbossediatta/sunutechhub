@@ -6,11 +6,16 @@ import {
 } from './courses.controller.js';
 import { CoursesService } from './courses.service.js';
 import { CourseContentMailerService } from './course-content-mailer.service.js';
+import { SupabaseCourseStorageService } from './supabase-course-storage.service.js';
 
 @Module({
   imports: [PricingModule],
   controllers: [CoursesController, AdminCoursesController],
-  providers: [CoursesService, CourseContentMailerService],
+  providers: [
+    CoursesService,
+    CourseContentMailerService,
+    SupabaseCourseStorageService,
+  ],
   exports: [CoursesService],
 })
 export class CoursesModule {}

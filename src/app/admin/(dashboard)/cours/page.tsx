@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { BadgeDollarSign, BookOpen, LoaderCircle, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,12 +106,33 @@ export default function AdminCoursPage() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [contentCourse, setContentCourse] = useState<AdminCourse | null>(null);
   const [form, setForm] = useState<CourseForm>(emptyForm);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
+  const bannerPreviewRef = useRef("");
   const [editing, setEditing] = useState<AdminCourse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const pagination = usePagination(courses);
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreviewRef.current) {
+        URL.revokeObjectURL(bannerPreviewRef.current);
+      }
+    };
+  }, []);
+
+  const selectBannerFile = (file: File | null) => {
+    if (bannerPreviewRef.current) {
+      URL.revokeObjectURL(bannerPreviewRef.current);
+    }
+    const previewUrl = file ? URL.createObjectURL(file) : "";
+    bannerPreviewRef.current = previewUrl;
+    setBannerPreviewUrl(previewUrl);
+    setBannerFile(file);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,6 +164,7 @@ export default function AdminCoursPage() {
     setEditing(null);
     setContentCourse(null);
     setForm(emptyForm);
+    selectBannerFile(null);
     setError("");
     setNotice("");
   };
@@ -150,6 +172,7 @@ export default function AdminCoursPage() {
   const beginEdit = (course: AdminCourse) => {
     setEditing(course);
     setForm(toForm(course));
+    selectBannerFile(null);
     setError("");
     setNotice("");
   };
@@ -176,7 +199,82 @@ export default function AdminCoursPage() {
     setSaving(true);
     setError("");
     setNotice("");
+    let uploadedBannerPath: string | null = null;
+    let courseSaved = false;
     try {
+      let coverImageUrl: string | null = form.coverImageUrl.trim() || null;
+      if (bannerFile) {
+        const uploadResponse = await fetch("/api/admin/courses/banner/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: bannerFile.name,
+            size: bannerFile.size,
+            contentType: bannerFile.type,
+          }),
+        });
+        const uploadResult: unknown = await uploadResponse.json().catch(() => null);
+        if (
+          !uploadResponse.ok ||
+          !uploadResult ||
+          typeof uploadResult !== "object" ||
+          !("path" in uploadResult) ||
+          typeof uploadResult.path !== "string" ||
+          !("signedUrl" in uploadResult) ||
+          typeof uploadResult.signedUrl !== "string"
+        ) {
+          const message =
+            uploadResult &&
+            typeof uploadResult === "object" &&
+            "message" in uploadResult &&
+            typeof uploadResult.message === "string"
+              ? uploadResult.message
+              : "Impossible de préparer le téléversement de la bannière.";
+          throw new Error(message);
+        }
+        uploadedBannerPath = uploadResult.path;
+        const storageResponse = await fetch(uploadResult.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": bannerFile.type },
+          body: bannerFile,
+          credentials: "omit",
+        });
+        if (!storageResponse.ok) {
+          throw new Error("Le téléversement de la bannière a échoué.");
+        }
+
+        const verifyResponse = await fetch(
+          "/api/admin/courses/banner/verify-upload",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: uploadResult.path,
+              size: bannerFile.size,
+              contentType: bannerFile.type,
+            }),
+          },
+        );
+        const verifyResult: unknown = await verifyResponse.json().catch(() => null);
+        if (
+          !verifyResponse.ok ||
+          !verifyResult ||
+          typeof verifyResult !== "object" ||
+          !("coverImageUrl" in verifyResult) ||
+          typeof verifyResult.coverImageUrl !== "string"
+        ) {
+          const message =
+            verifyResult &&
+            typeof verifyResult === "object" &&
+            "message" in verifyResult &&
+            typeof verifyResult.message === "string"
+              ? verifyResult.message
+              : "Impossible de vérifier la bannière téléversée.";
+          throw new Error(message);
+        }
+        coverImageUrl = verifyResult.coverImageUrl;
+      }
+
       const general = {
         title: form.title,
         description: form.description,
@@ -184,7 +282,7 @@ export default function AdminCoursPage() {
         language: form.language,
         instructorName: form.instructorName,
         duration: form.duration,
-        coverImageUrl: form.coverImageUrl.trim() || null,
+        coverImageUrl,
         lessons,
         subjects: form.subjects.split(",").map((subject) => subject.trim()).filter(Boolean),
         isFree: form.isFree,
@@ -213,6 +311,8 @@ export default function AdminCoursPage() {
           : null;
       if (!courseId) throw new Error("Le cours a été enregistré, mais sa réponse est invalide.");
 
+      courseSaved = true;
+
       const priceResponse = await fetch(`/api/admin/courses/${encodeURIComponent(courseId)}/prices`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -229,10 +329,29 @@ export default function AdminCoursPage() {
 
       setEditing(null);
       setForm(emptyForm);
+      selectBannerFile(null);
       setNotice(editing ? "Le cours a été modifié." : "Le cours a été créé.");
       await load();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Impossible d’enregistrer le cours.");
+      let message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Impossible d’enregistrer le cours.";
+      if (uploadedBannerPath && !courseSaved) {
+        try {
+          const cleanupResponse = await fetch("/api/admin/courses/banner/upload", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: uploadedBannerPath }),
+          });
+          if (!cleanupResponse.ok) {
+            message += " Le fichier temporaire n’a pas pu être supprimé.";
+          }
+        } catch {
+          message += " Le fichier temporaire n’a pas pu être supprimé.";
+        }
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -273,13 +392,43 @@ export default function AdminCoursPage() {
           <Input maxLength={180} placeholder="Formateur" value={form.instructorName} onChange={(event) => setForm({ ...form, instructorName: event.target.value })} />
           <Input maxLength={80} placeholder="Durée (ex. 8 heures)" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
           <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
-            Image de couverture (facultative)
-            <Input type="url" maxLength={2048} placeholder="https://exemple.com/image.jpg" value={form.coverImageUrl} onChange={(event) => setForm({ ...form, coverImageUrl: event.target.value })} />
-            <span className="text-xs text-muted-foreground">Ajoute un lien HTTPS direct vers une image hébergée. Tu peux laisser ce champ vide.</span>
+            Photo de bannière du cours (facultative)
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={saving}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (
+                  file &&
+                  (!["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+                    file.size > 5 * 1024 * 1024)
+                ) {
+                  setError("Choisis une image JPG, PNG ou WebP de 5 Mo maximum.");
+                  event.target.value = "";
+                  return;
+                }
+                setError("");
+                selectBannerFile(file);
+                if (file) setForm((current) => ({ ...current, coverImageUrl: "" }));
+              }}
+            />
+            <span className="text-xs text-muted-foreground">
+              Choisis une image JPG, PNG ou WebP de 5 Mo maximum, ou indique un
+              lien HTTPS. Ce champ peut rester vide.
+            </span>
+            <Input
+              type="url"
+              maxLength={2048}
+              placeholder="https://exemple.com/image.jpg"
+              value={form.coverImageUrl}
+              disabled={Boolean(bannerFile) || saving}
+              onChange={(event) => setForm({ ...form, coverImageUrl: event.target.value })}
+            />
           </label>
-          {form.coverImageUrl.trim() && (
+          {(bannerPreviewUrl || form.coverImageUrl.trim()) && (
             <img
-              src={form.coverImageUrl.trim()}
+              src={bannerPreviewUrl || form.coverImageUrl.trim()}
               alt="Aperçu de la couverture du cours"
               className="max-h-48 w-full rounded-xl border object-cover sm:col-span-2"
             />

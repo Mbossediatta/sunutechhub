@@ -80,6 +80,8 @@ export function CourseContentManager({
 }) {
   const [contents, setContents] = useState<CourseContent[]>([]);
   const [form, setForm] = useState<ContentForm>(emptyForm);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfInputKey, setPdfInputKey] = useState(0);
   const [editing, setEditing] = useState<CourseContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,11 +124,13 @@ export function CourseContentManager({
   }, [courseId]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const beginEdit = (content: CourseContent) => {
     setEditing(content);
+    setPdfFile(null);
+    setPdfInputKey((key) => key + 1);
     setForm({
       type: content.type,
       title: content.title,
@@ -158,12 +162,96 @@ export function CourseContentManager({
     setSaving(true);
     setError("");
     setNotice("");
+    let uploadedPdfPath: string | null = null;
     try {
+      let contentUrl = form.url.trim();
+      if (form.type === "RESOURCE" && pdfFile) {
+        const uploadResponse = await fetch(
+          `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload-url`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: pdfFile.name,
+              size: pdfFile.size,
+              contentType: pdfFile.type,
+            }),
+          },
+        );
+        const uploadResult: unknown = await uploadResponse
+          .json()
+          .catch(() => null);
+        if (
+          !uploadResponse.ok ||
+          !uploadResult ||
+          typeof uploadResult !== "object" ||
+          !("path" in uploadResult) ||
+          typeof uploadResult.path !== "string" ||
+          !("signedUrl" in uploadResult) ||
+          typeof uploadResult.signedUrl !== "string"
+        ) {
+          const message =
+            uploadResult &&
+            typeof uploadResult === "object" &&
+            "message" in uploadResult &&
+            typeof uploadResult.message === "string"
+              ? uploadResult.message
+              : "Impossible de préparer le téléversement du PDF.";
+          throw new Error(message);
+        }
+
+        const storageResponse = await fetch(uploadResult.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/pdf" },
+          body: pdfFile,
+          credentials: "omit",
+        });
+        if (!storageResponse.ok) {
+          throw new Error(
+            "Le téléversement du PDF a échoué. Vérifie le bucket et les paramètres CORS Supabase.",
+          );
+        }
+        uploadedPdfPath = uploadResult.path;
+
+        const verifyResponse = await fetch(
+          `/api/admin/courses/${encodeURIComponent(courseId)}/content/verify-upload`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: uploadResult.path,
+              size: pdfFile.size,
+            }),
+          },
+        );
+        const verifyResult: unknown = await verifyResponse
+          .json()
+          .catch(() => null);
+        if (
+          !verifyResponse.ok ||
+          !verifyResult ||
+          typeof verifyResult !== "object" ||
+          !("path" in verifyResult) ||
+          typeof verifyResult.path !== "string" ||
+          !verifyResult.path.startsWith("storage://")
+        ) {
+          const message =
+            verifyResult &&
+            typeof verifyResult === "object" &&
+            "message" in verifyResult &&
+            typeof verifyResult.message === "string"
+              ? verifyResult.message
+              : "Le PDF téléversé n’a pas pu être vérifié.";
+          throw new Error(message);
+        }
+        contentUrl = verifyResult.path;
+      }
+
       const payload = {
         type: form.type,
         title: form.title.trim(),
         description: form.description.trim(),
-        url: form.url.trim(),
+        url: contentUrl,
         scheduledAt:
           form.type === "LIVE_SESSION"
             ? new Date(form.scheduledAt).toISOString()
@@ -190,20 +278,64 @@ export function CourseContentManager({
             : "Impossible d’enregistrer ce contenu.";
         throw new Error(message);
       }
+      uploadedPdfPath = null;
       setEditing(null);
       setForm(emptyForm);
-      setNotice(
+      setPdfFile(null);
+      setPdfInputKey((key) => key + 1);
+      let successNotice =
         editing
           ? "Le contenu du cours a été modifié."
-          : "Le contenu a été ajouté au cours.",
-      );
+          : "Le contenu a été ajouté au cours.";
+      if (
+        editing?.url.startsWith("storage://") &&
+        editing.url !== contentUrl
+      ) {
+        try {
+          const oldPdfCleanup = await fetch(
+            `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: editing.url }),
+            },
+          );
+          if (!oldPdfCleanup.ok) {
+            successNotice +=
+              " L’ancien PDF n’a pas pu être supprimé du stockage; vérifie Supabase Storage.";
+          }
+        } catch {
+          successNotice +=
+            " L’ancien PDF n’a pas pu être supprimé du stockage; vérifie Supabase Storage.";
+        }
+      }
+      setNotice(successNotice);
       await load();
     } catch (saveError) {
-      setError(
+      let message =
         saveError instanceof Error
           ? saveError.message
-          : "Impossible d’enregistrer ce contenu.",
-      );
+          : "Impossible d’enregistrer ce contenu.";
+      if (uploadedPdfPath) {
+        try {
+          const cleanupResponse = await fetch(
+            `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: uploadedPdfPath }),
+            },
+          );
+          if (!cleanupResponse.ok) {
+            message +=
+              " Le PDF temporaire n’a pas pu être supprimé; vérifie Supabase Storage.";
+          }
+        } catch {
+          message +=
+            " Le PDF temporaire n’a pas pu être supprimé; vérifie Supabase Storage.";
+        }
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -233,7 +365,14 @@ export function CourseContentManager({
         setEditing(null);
         setForm(emptyForm);
       }
-      setNotice("Le contenu a été supprimé.");
+      setNotice(
+        result &&
+          typeof result === "object" &&
+          "storageCleanupPending" in result &&
+          result.storageCleanupPending === true
+          ? "Le contenu a été supprimé, mais son PDF n’a pas pu être retiré de Supabase Storage."
+          : "Le contenu a été supprimé.",
+      );
       await load();
     } catch (removeError) {
       setError(
@@ -286,16 +425,18 @@ export function CourseContentManager({
           Type de contenu
           <select
             value={form.type}
-            onChange={(event) =>
+            onChange={(event) => {
+              const nextType = event.target.value as ContentType;
               setForm({
                 ...form,
-                type: event.target.value as ContentType,
+                type: nextType,
+                url: form.url.startsWith("storage://") ? "" : form.url,
                 scheduledAt:
-                  event.target.value === "LIVE_SESSION"
-                    ? form.scheduledAt
-                    : "",
-              })
-            }
+                  nextType === "LIVE_SESSION" ? form.scheduledAt : "",
+              });
+              setPdfFile(null);
+              setPdfInputKey((key) => key + 1);
+            }}
             className="h-11 rounded-xl border border-input bg-background px-3"
           >
             {Object.entries(typeLabels).map(([value, label]) => (
@@ -313,15 +454,71 @@ export function CourseContentManager({
           value={form.title}
           onChange={(event) => setForm({ ...form, title: event.target.value })}
         />
-        <Input
-          required
-          type="url"
-          maxLength={2048}
-          placeholder="Lien HTTPS vers la vidéo, le support ou la séance"
-          value={form.url}
-          onChange={(event) => setForm({ ...form, url: event.target.value })}
-          className="sm:col-span-2"
-        />
+        {!(form.type === "RESOURCE" && form.url.startsWith("storage://")) && (
+          <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+            {form.type === "LIVE_SESSION"
+              ? "Lien Google Meet ou Zoom"
+              : form.type === "RESOURCE"
+                ? "Lien HTTPS du support (facultatif si tu ajoutes un PDF)"
+                : "Lien HTTPS de la vidéo"}
+            <Input
+              required={
+                form.type !== "RESOURCE" ||
+                (!pdfFile && !form.url.startsWith("storage://"))
+              }
+              type="url"
+              maxLength={2048}
+              placeholder={
+                form.type === "LIVE_SESSION"
+                  ? "https://meet.google.com/... ou lien Zoom"
+                  : "https://..."
+              }
+              value={form.url}
+              onChange={(event) =>
+                setForm({ ...form, url: event.target.value })
+              }
+            />
+          </label>
+        )}
+        {form.type === "RESOURCE" && (
+          <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+            {form.url.startsWith("storage://")
+              ? "PDF actuellement enregistré (un nouveau fichier le remplacera)"
+              : "Ou choisir un PDF depuis ton ordinateur (20 Mo maximum)"}
+            {form.url.startsWith("storage://") && (
+              <span className="text-xs text-muted-foreground">
+                Un PDF est déjà associé à ce support.
+              </span>
+            )}
+            <input
+              key={pdfInputKey}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (
+                  file &&
+                  (file.type !== "application/pdf" ||
+                    !file.name.toLowerCase().endsWith(".pdf") ||
+                    file.size > 20 * 1024 * 1024)
+                ) {
+                  setError("Choisis un fichier PDF de 20 Mo maximum.");
+                  event.target.value = "";
+                  setPdfFile(null);
+                  return;
+                }
+                setError("");
+                setPdfFile(file);
+              }}
+              className="rounded-xl border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground"
+            />
+            {pdfFile && (
+              <span className="text-xs text-muted-foreground">
+                Fichier sélectionné : {pdfFile.name}
+              </span>
+            )}
+          </label>
+        )}
         {form.type === "LIVE_SESSION" && (
           <label className="flex flex-col gap-1.5 text-sm">
             Date et heure de la séance
@@ -381,6 +578,8 @@ export function CourseContentManager({
               onClick={() => {
                 setEditing(null);
                 setForm(emptyForm);
+                setPdfFile(null);
+                setPdfInputKey((key) => key + 1);
               }}
             >
               Annuler
@@ -453,8 +652,9 @@ export function CourseContentManager({
       />
       <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <CalendarDays className="h-3.5 w-3.5" />
-        Le lien HTTPS est fourni par ton service vidéo, de partage de fichiers ou
-        de visioconférence.
+        Les vidéos et séances utilisent un lien HTTPS. Les séances sont
+        rejointes via Google Meet ou Zoom. Les PDF sont stockés en privé sur
+        Supabase et accessibles temporairement aux membres inscrits.
       </p>
     </section>
   );

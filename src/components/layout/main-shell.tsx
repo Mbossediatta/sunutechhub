@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { SiteHeader } from "@/components/layout/site-header";
 
@@ -15,7 +16,6 @@ export function MainShell({ children, footer }: { children: ReactNode; footer: R
         <SiteHeader />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
         {footer}
-        <BottomNav />
       </div>
     }>
       <MainShellContent footer={footer}>{children}</MainShellContent>
@@ -26,15 +26,49 @@ export function MainShell({ children, footer }: { children: ReactNode; footer: R
 function MainShellContent({ children, footer }: { children: ReactNode; footer: ReactNode }) {
   const pathname = usePathname();
   const isStandalone = standaloneRoutes.includes(pathname);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) {
+        setAuthenticated(false);
+        return;
+      }
+
+      const result: unknown = await response.json();
+      setAuthenticated(
+        Boolean(
+          result &&
+          typeof result === "object" &&
+          "id" in result &&
+          typeof result.id === "string"
+        )
+      );
+    } catch {
+      setAuthenticated(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (!isStandalone) return refreshSession();
+    });
+  }, [isStandalone, pathname, refreshSession]);
+
+  useEffect(() => {
+    window.addEventListener("sth:auth-changed", refreshSession);
+    return () => window.removeEventListener("sth:auth-changed", refreshSession);
+  }, [refreshSession]);
 
   return (
     <div className="flex min-h-screen flex-col">
       {!isStandalone && <SiteHeader />}
-      <main className={isStandalone ? "flex-1" : "flex-1 pb-20 md:pb-0"}>
+      <main className={!isStandalone && authenticated ? "flex-1 pb-20 md:pb-0" : "flex-1"}>
         {children}
       </main>
       {footer}
-      {!isStandalone && <BottomNav />}
+      {!isStandalone && <BottomNav authenticated={authenticated} />}
     </div>
   );
 }

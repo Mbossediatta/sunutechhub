@@ -6,11 +6,12 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
   Min,
   MinLength,
+  Validate,
 } from 'class-validator';
+import { CourseContentUrlValidator } from '../course-content-url.validator.js';
 
 export class UpdateCourseContentDto {
   @IsOptional()
@@ -29,7 +30,7 @@ export class UpdateCourseContentDto {
   description?: string;
 
   @IsOptional()
-  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @Validate(CourseContentUrlValidator)
   @MaxLength(2048)
   url?: string;
 
