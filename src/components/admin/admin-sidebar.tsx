@@ -5,10 +5,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, MessageSquare, BookOpen,
-  Briefcase, Flag, BarChart2, Settings,
-  CalendarDays, ChevronRight, BadgeDollarSign,
-  CreditCard, ClipboardCheck, ScrollText,
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  BookOpen,
+  Briefcase,
+  Flag,
+  BarChart2,
+  Settings,
+  CalendarDays,
+  ChevronRight,
+  BadgeDollarSign,
+  CreditCard,
+  ClipboardCheck,
+  ScrollText,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,34 +27,40 @@ const nav = [
   {
     label: "Principal",
     items: [
-      { href: "/admin",            label: "Vue d'ensemble",  icon: LayoutDashboard },
-      { href: "/admin/statistiques",label: "Statistiques",  icon: BarChart2 },
+      { href: "/admin", label: "Vue d'ensemble", icon: LayoutDashboard },
+      { href: "/admin/statistiques", label: "Statistiques", icon: BarChart2 },
     ],
   },
   {
     label: "Contenu",
     items: [
-      { href: "/admin/membres",    label: "Membres",         icon: Users },
-      { href: "/admin/questions",  label: "Questions",       icon: MessageSquare },
-      { href: "/admin/cours",      label: "Cours",           icon: BookOpen },
-      { href: "/admin/tarifs",     label: "Tarifs",          icon: BadgeDollarSign },
-      { href: "/admin/paiements",  label: "Paiements",       icon: CreditCard },
-      { href: "/admin/projets",    label: "Projets",          icon: ClipboardCheck },
-      { href: "/admin/attestations",label: "Attestations",    icon: ScrollText },
-      { href: "/admin/emplois",    label: "Offres emploi",   icon: Briefcase },
-      { href: "/admin/evenements", label: "Événements",      icon: CalendarDays },
+      { href: "/admin/membres", label: "Membres", icon: Users },
+      { href: "/admin/questions", label: "Questions", icon: MessageSquare },
+      { href: "/admin/cours", label: "Cours", icon: BookOpen },
+      { href: "/admin/tarifs", label: "Tarifs", icon: BadgeDollarSign },
+      { href: "/admin/paiements", label: "Paiements", icon: CreditCard },
+      { href: "/admin/projets", label: "Projets", icon: ClipboardCheck },
+      { href: "/admin/attestations", label: "Attestations", icon: ScrollText },
+      { href: "/admin/emplois", label: "Offres emploi", icon: Briefcase },
+      { href: "/admin/evenements", label: "Événements", icon: CalendarDays },
     ],
   },
   {
     label: "Modération",
     items: [
-      { href: "/admin/moderation", label: "Signalements",    icon: Flag, badge: 3 },
+      {
+        href: "/admin/moderation",
+        label: "Signalements",
+        icon: Flag,
+        badge: 3,
+      },
     ],
   },
   {
     label: "Système",
     items: [
-      { href: "/admin/parametres", label: "Paramètres",      icon: Settings },
+      { href: "/admin/securite", label: "Sécurité", icon: ShieldCheck },
+      { href: "/admin/parametres", label: "Paramètres", icon: Settings },
     ],
   },
 ];
@@ -65,10 +82,14 @@ function AdminSidebarInner() {
         if (settingsResponse.ok) {
           const result: unknown = await settingsResponse.json();
           if (result && typeof result === "object") {
-            const settings = result as { platformName?: unknown; logoUrl?: unknown };
+            const settings = result as {
+              platformName?: unknown;
+              logoUrl?: unknown;
+            };
             setBranding({
               platformName:
-                typeof settings.platformName === "string" && settings.platformName
+                typeof settings.platformName === "string" &&
+                settings.platformName
                   ? settings.platformName
                   : "Sunu Tech Hub",
               logoUrl:
@@ -121,24 +142,33 @@ function AdminSidebarInner() {
             {group.items.map((item) => {
               const active = pathname === item.href;
               return (
-                <Link key={item.href} href={item.href}
+                <Link
+                  key={item.href}
+                  href={item.href}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 mb-0.5",
                     active
                       ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}>
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1">{item.label}</span>
                   {"badge" in item && item.badge && (
-                    <span className={cn(
-                      "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                      active ? "bg-white/20 text-white" : "bg-destructive/10 text-destructive"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+                        active
+                          ? "bg-white/20 text-white"
+                          : "bg-destructive/10 text-destructive",
+                      )}
+                    >
                       {item.badge}
                     </span>
                   )}
-                  {active && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
+                  {active && (
+                    <ChevronRight className="h-3.5 w-3.5 opacity-60" />
+                  )}
                 </Link>
               );
             })}
@@ -169,7 +199,11 @@ function AdminSidebarInner() {
 
 export function AdminSidebar() {
   return (
-    <Suspense fallback={<aside className="hidden md:flex w-64 border-r bg-card h-screen" />}>
+    <Suspense
+      fallback={
+        <aside className="hidden md:flex w-64 border-r bg-card h-screen" />
+      }
+    >
       <AdminSidebarInner />
     </Suspense>
   );

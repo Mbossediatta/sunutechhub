@@ -21,6 +21,8 @@ async function proxyAdminRequest(request: Request, context: RouteContext) {
   const { path } = await context.params;
   const backendPath = `/admin/${path.map(encodeURIComponent).join("/")}`;
   const headers = new Headers({ Authorization: `Bearer ${token}` });
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) headers.set("x-forwarded-for", forwardedFor);
   let body: string | undefined;
   if (request.method !== "GET" && request.method !== "HEAD") {
     headers.set("Content-Type", "application/json");
@@ -45,7 +47,10 @@ async function proxyAdminRequest(request: Request, context: RouteContext) {
     } catch {
       if (attempt === attempts - 1) {
         return NextResponse.json(
-          { message: "Impossible de joindre le serveur. Vérifie que le backend est démarré, puis réessaie." },
+          {
+            message:
+              "Impossible de joindre le serveur. Vérifie que le backend est démarré, puis réessaie.",
+          },
           { status: 503 },
         );
       }

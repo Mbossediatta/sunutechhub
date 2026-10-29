@@ -7,25 +7,26 @@ import { Bell, LoaderCircle, LogOut, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const titles: Record<string, string> = {
-  "/admin":               "Vue d'ensemble",
-  "/admin/statistiques":  "Statistiques",
-  "/admin/membres":       "Membres",
-  "/admin/questions":     "Questions",
-  "/admin/cours":         "Cours",
-  "/admin/tarifs":        "Tarifs",
-  "/admin/paiements":     "Paiements",
-  "/admin/projets":       "Évaluation des projets",
-  "/admin/attestations":  "Attestations de réussite",
-  "/admin/emplois":       "Offres d'emploi",
-  "/admin/evenements":    "Événements",
-  "/admin/moderation":    "Modération",
-  "/admin/parametres":    "Paramètres",
+  "/admin": "Vue d'ensemble",
+  "/admin/statistiques": "Statistiques",
+  "/admin/membres": "Membres",
+  "/admin/questions": "Questions",
+  "/admin/cours": "Cours",
+  "/admin/tarifs": "Tarifs",
+  "/admin/paiements": "Paiements",
+  "/admin/projets": "Évaluation des projets",
+  "/admin/attestations": "Attestations de réussite",
+  "/admin/emplois": "Offres d'emploi",
+  "/admin/evenements": "Événements",
+  "/admin/moderation": "Modération",
+  "/admin/parametres": "Paramètres",
+  "/admin/securite": "Sécurité",
 };
 
 function AdminHeaderInner() {
   const pathname = usePathname();
   const router = useRouter();
-  const title    = titles[pathname] ?? "Admin";
+  const title = titles[pathname] ?? "Admin";
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 

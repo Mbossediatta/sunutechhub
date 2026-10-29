@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, LoaderCircle } from "lucide-react";
+import { Download, LoaderCircle, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -89,6 +89,8 @@ export default function AdminPaiementsPage() {
   const [confirmedInPayTech, setConfirmedInPayTech] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
+  const [resendingReceipts, setResendingReceipts] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -244,6 +246,58 @@ export default function AdminPaiementsPage() {
       );
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const resendReceipts = async () => {
+    if (
+      !window.confirm(
+        "Renvoyer le reçu PDF actualisé par e-mail à tous les membres ayant déjà reçu un reçu pour un paiement confirmé ?",
+      )
+    ) {
+      return;
+    }
+    setResendingReceipts(true);
+    setActionError("");
+    setActionNotice("");
+    try {
+      const response = await fetch("/api/admin/payments/resend-receipts", {
+        method: "POST",
+      });
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de mettre les reçus à jour en file d’envoi.";
+        throw new Error(message);
+      }
+      const queued =
+        result &&
+        typeof result === "object" &&
+        "queued" in result &&
+        typeof result.queued === "number"
+          ? result.queued
+          : null;
+      if (queued === null) {
+        throw new Error("La réponse de renvoi des reçus est invalide.");
+      }
+      setActionNotice(
+        queued
+          ? `${queued} reçu(s) mis en file pour renvoi. L’envoi commencera dans la prochaine minute.`
+          : "Aucun reçu déjà envoyé n’est à renvoyer.",
+      );
+    } catch (resendError) {
+      setActionError(
+        resendError instanceof Error
+          ? resendError.message
+          : "Impossible de mettre les reçus à jour en file d’envoi.",
+      );
+    } finally {
+      setResendingReceipts(false);
     }
   };
 
@@ -410,6 +464,22 @@ export default function AdminPaiementsPage() {
           ! {error}
         </p>
       )}
+      {actionError && !manualPayment && (
+        <p
+          role="alert"
+          className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent"
+        >
+          {actionError}
+        </p>
+      )}
+      {actionNotice && (
+        <p
+          role="status"
+          className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary"
+        >
+          {actionNotice}
+        </p>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row">
         <Input
           value={search}
@@ -436,6 +506,19 @@ export default function AdminPaiementsPage() {
         >
           <Download className="h-4 w-4" />
           Exporter CSV
+        </Button>
+        <Button
+          onClick={() => void resendReceipts()}
+          variant="outline"
+          className="gap-2"
+          disabled={resendingReceipts}
+        >
+          {resendingReceipts ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <MailCheck className="h-4 w-4" />
+          )}
+          Renvoyer les reçus PDF actualisés
         </Button>
       </div>
       <div className="overflow-x-auto rounded-2xl border bg-card">

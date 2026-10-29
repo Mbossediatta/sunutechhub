@@ -69,9 +69,13 @@ export async function GET(request: NextRequest) {
 
   let backendResponse: Response;
   try {
+    const forwardedFor = request.headers.get("x-forwarded-for");
     backendResponse = await fetch(backendUrl("/auth/google/callback"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+      },
       body: JSON.stringify({ code }),
       cache: "no-store",
       signal: AbortSignal.timeout(15_000),

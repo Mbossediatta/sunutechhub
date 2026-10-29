@@ -57,9 +57,13 @@ export async function POST(request: Request) {
 
   let backendResponse: Response;
   try {
+    const forwardedFor = request.headers.get("x-forwarded-for");
     backendResponse = await fetch(backendUrl("/auth/magic-link/verify"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+      },
       body: JSON.stringify({ token }),
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
@@ -84,8 +88,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(pageUrl("/connexion?magic=invalid"));
   }
 
-  const destination =
-    result.user.role === "ADMIN" ? "/admin" : "/questions";
+  const destination = result.user.role === "ADMIN" ? "/admin" : "/questions";
   const response = NextResponse.redirect(pageUrl(destination));
   response.cookies.set(AUTH_COOKIE_NAME, result.accessToken, {
     httpOnly: true,

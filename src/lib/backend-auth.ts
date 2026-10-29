@@ -66,9 +66,13 @@ export async function authenticate(
 
   let backendResponse: Response;
   try {
+    const forwardedFor = request.headers.get("x-forwarded-for");
     backendResponse = await fetch(backendUrl(`/auth/${action}`), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+      },
       body: JSON.stringify(payload),
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
