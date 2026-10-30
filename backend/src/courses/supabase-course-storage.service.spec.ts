@@ -109,6 +109,52 @@ describe('SupabaseCourseStorageService', () => {
     );
   });
 
+  it('creates trainer banners under an account-scoped storage path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          url: '/object/upload/sign/course-banners/upload?token=signed-upload-token',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await storage.createSignedTrainerBannerUpload(
+      'trainer_1',
+      'couverture.png',
+      1024,
+      'image/png',
+    );
+
+    expect(result.path).toMatch(
+      /^course-banners\/trainers\/trainer_1\/[0-9a-f-]+-couverture\.png$/i,
+    );
+  });
+
+  it('does not allow a trainer to verify or delete another trainer’s banner', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const otherTrainersPath =
+      'course-banners/trainers/trainer_2/123e4567-e89b-12d3-a456-426614174000-cover.jpg';
+    await expect(
+      storage.verifyUploadedTrainerBanner(
+        'trainer_1',
+        otherTrainersPath,
+        1024,
+        'image/jpeg',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      storage.deleteTrainerCourseBanner('trainer_1', otherTrainersPath),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('creates signed uploads for project screenshots in the public image bucket', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

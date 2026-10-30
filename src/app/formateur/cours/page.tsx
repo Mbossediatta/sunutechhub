@@ -1,8 +1,15 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { BookOpen, LoaderCircle, LogOut, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { BookOpen, LoaderCircle, Plus, Upload, X } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { CourseContentManager } from "@/components/admin/course-content-manager";
 import { Input } from "@/components/ui/input";
@@ -11,8 +18,36 @@ type TrainerCourse = {
   id: string;
   title: string;
   description: string;
+  level: string;
+  language: string;
+  duration: string;
+  coverImageUrl: string | null;
+  lessons: number;
+  subjects: string[];
   active: boolean;
   _count: { registrations: number };
+};
+
+type CourseForm = {
+  title: string;
+  description: string;
+  level: string;
+  language: string;
+  duration: string;
+  coverImageUrl: string;
+  lessons: string;
+  subjects: string;
+};
+
+const emptyForm: CourseForm = {
+  title: "",
+  description: "",
+  level: "Débutant",
+  language: "Français",
+  duration: "",
+  coverImageUrl: "",
+  lessons: "0",
+  subjects: "",
 };
 
 type TrainerProgress = {
@@ -30,19 +65,41 @@ type TrainerProgress = {
 };
 
 export default function TrainerCoursesPage() {
-  const router = useRouter();
   const [courses, setCourses] = useState<TrainerCourse[]>([]);
   const [progress, setProgress] = useState<TrainerProgress | null>(null);
   const [loadingProgressId, setLoadingProgressId] = useState("");
   const [selected, setSelected] = useState<TrainerCourse | null>(null);
   const [editing, setEditing] = useState<TrainerCourse | null>(null);
   const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [form, setForm] = useState<CourseForm>(emptyForm);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const bannerPreviewRef = useRef("");
+
+  const selectBannerFile = (file: File | null) => {
+    if (bannerPreviewRef.current) {
+      URL.revokeObjectURL(bannerPreviewRef.current);
+    }
+    const previewUrl = file ? URL.createObjectURL(file) : "";
+    bannerPreviewRef.current = previewUrl;
+    setBannerPreviewUrl(previewUrl);
+    setBannerFile(file);
+    if (bannerInputRef.current) bannerInputRef.current.value = "";
+  };
+
+  useEffect(
+    () => () => {
+      if (bannerPreviewRef.current) {
+        URL.revokeObjectURL(bannerPreviewRef.current);
+      }
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,8 +140,8 @@ export default function TrainerCoursesPage() {
     setCreating(true);
     setSelected(null);
     setProgress(null);
-    setTitle("");
-    setDescription("");
+    setForm(emptyForm);
+    selectBannerFile(null);
     setError("");
     setNotice("");
   };
@@ -94,8 +151,17 @@ export default function TrainerCoursesPage() {
     setCreating(false);
     setSelected(null);
     setProgress(null);
-    setTitle(course.title);
-    setDescription(course.description);
+    setForm({
+      title: course.title,
+      description: course.description,
+      level: course.level,
+      language: course.language,
+      duration: course.duration,
+      coverImageUrl: course.coverImageUrl ?? "",
+      lessons: String(course.lessons),
+      subjects: course.subjects.join(", "),
+    });
+    selectBannerFile(null);
     setError("");
     setNotice("");
   };
@@ -132,13 +198,116 @@ export default function TrainerCoursesPage() {
     }
   };
 
+  const handleBannerChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (
+      file &&
+      (!["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+        file.size > 5 * 1024 * 1024)
+    ) {
+      setError("Choisis une image JPG, PNG ou WebP de 5 Mo maximum.");
+      event.target.value = "";
+      return;
+    }
+    setError("");
+    setForm((current) => ({ ...current, coverImageUrl: "" }));
+    selectBannerFile(file);
+  };
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
+    const lessons = Number(form.lessons);
+    if (!Number.isSafeInteger(lessons) || lessons < 0) {
+      setError("Le nombre de leçons doit être un entier positif.");
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
+    let uploadedBannerPath: string | null = null;
+    let courseSaved = false;
     try {
+      let coverImageUrl: string | null = form.coverImageUrl.trim() || null;
+      if (bannerFile) {
+        const uploadResponse = await fetch(
+          "/api/formateur/courses/banner/upload-url",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: bannerFile.name,
+              size: bannerFile.size,
+              contentType: bannerFile.type,
+            }),
+          },
+        );
+        const uploadResult: unknown = await uploadResponse
+          .json()
+          .catch(() => null);
+        if (
+          !uploadResponse.ok ||
+          !uploadResult ||
+          typeof uploadResult !== "object" ||
+          !("path" in uploadResult) ||
+          typeof uploadResult.path !== "string" ||
+          !("signedUrl" in uploadResult) ||
+          typeof uploadResult.signedUrl !== "string"
+        ) {
+          const message =
+            uploadResult &&
+            typeof uploadResult === "object" &&
+            "message" in uploadResult &&
+            typeof uploadResult.message === "string"
+              ? uploadResult.message
+              : "Impossible de préparer le téléversement de la bannière.";
+          throw new Error(message);
+        }
+        uploadedBannerPath = uploadResult.path;
+        const storageResponse = await fetch(uploadResult.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": bannerFile.type },
+          body: bannerFile,
+          credentials: "omit",
+        });
+        if (!storageResponse.ok) {
+          throw new Error("Le téléversement de la bannière a échoué.");
+        }
+
+        const verifyResponse = await fetch(
+          "/api/formateur/courses/banner/verify-upload",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: uploadResult.path,
+              size: bannerFile.size,
+              contentType: bannerFile.type,
+            }),
+          },
+        );
+        const verifyResult: unknown = await verifyResponse
+          .json()
+          .catch(() => null);
+        if (
+          !verifyResponse.ok ||
+          !verifyResult ||
+          typeof verifyResult !== "object" ||
+          !("coverImageUrl" in verifyResult) ||
+          typeof verifyResult.coverImageUrl !== "string"
+        ) {
+          const message =
+            verifyResult &&
+            typeof verifyResult === "object" &&
+            "message" in verifyResult &&
+            typeof verifyResult.message === "string"
+              ? verifyResult.message
+              : "Impossible de vérifier la bannière téléversée.";
+          throw new Error(message);
+        }
+        coverImageUrl = verifyResult.coverImageUrl;
+      }
+
       const response = await fetch(
         editing
           ? `/api/formateur/courses/${encodeURIComponent(editing.id)}`
@@ -146,7 +315,15 @@ export default function TrainerCoursesPage() {
         {
           method: editing ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description }),
+          body: JSON.stringify({
+            ...form,
+            lessons,
+            subjects: form.subjects
+              .split(",")
+              .map((subject) => subject.trim())
+              .filter(Boolean),
+            coverImageUrl,
+          }),
         },
       );
       const result: unknown = await response.json().catch(() => null);
@@ -160,8 +337,10 @@ export default function TrainerCoursesPage() {
             : "Impossible d’enregistrer le cours.";
         throw new Error(message);
       }
+      courseSaved = true;
       setEditing(null);
       setCreating(false);
+      selectBannerFile(null);
       setNotice(
         editing
           ? "Les informations du cours ont été mises à jour."
@@ -169,46 +348,37 @@ export default function TrainerCoursesPage() {
       );
       await load();
     } catch (saveError) {
-      setError(
+      let message =
         saveError instanceof Error
           ? saveError.message
-          : "Impossible d’enregistrer le cours.",
-      );
+          : "Impossible d’enregistrer le cours.";
+      if (uploadedBannerPath && !courseSaved) {
+        try {
+          const cleanupResponse = await fetch(
+            "/api/formateur/courses/banner/upload",
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: uploadedBannerPath }),
+            },
+          );
+          if (!cleanupResponse.ok) {
+            message +=
+              " L’image temporaire n’a pas pu être supprimée automatiquement.";
+          }
+        } catch {
+          message +=
+            " L’image temporaire n’a pas pu être supprimée automatiquement.";
+        }
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }
   };
 
-  const logout = async () => {
-    try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok) {
-        setError("La déconnexion n’a pas abouti. Réessaie.");
-        return;
-      }
-      router.replace("/admin/login");
-      router.refresh();
-    } catch {
-      setError("Impossible de fermer la session. Réessaie.");
-    }
-  };
-
   return (
-    <main className="min-h-screen bg-muted/30">
-      <header className="flex items-center justify-between border-b bg-card px-4 py-4 sm:px-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-            Espace formateur
-          </p>
-          <h1 className="font-bricolage text-xl font-bold">Mes cours</h1>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void logout()}>
-          <LogOut className="h-4 w-4" />
-          Se déconnecter
-        </Button>
-      </header>
-
-      <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-8">
+      <div className="mx-auto flex max-w-5xl flex-col gap-5">
         {error && (
           <p role="alert" className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">
             {error}
@@ -239,24 +409,151 @@ export default function TrainerCoursesPage() {
 
           {(editing || creating) && (
             <form onSubmit={save} className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Input
-                required
-                minLength={3}
-                maxLength={180}
-                placeholder="Titre du cours"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-              <textarea
-                required
-                minLength={10}
-                maxLength={5000}
-                rows={4}
-                placeholder="Description du cours"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="rounded-xl border border-input bg-background px-4 py-3 text-sm sm:col-span-2"
-              />
+              <label className="flex flex-col gap-1.5 text-sm">
+                Titre du cours
+                <Input
+                  required
+                  minLength={3}
+                  maxLength={180}
+                  value={form.title}
+                  onChange={(event) =>
+                    setForm({ ...form, title: event.target.value })
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                Langue
+                <Input
+                  maxLength={100}
+                  value={form.language}
+                  onChange={(event) =>
+                    setForm({ ...form, language: event.target.value })
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                Niveau
+                <Input
+                  maxLength={80}
+                  value={form.level}
+                  onChange={(event) =>
+                    setForm({ ...form, level: event.target.value })
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                Durée (ex. 8 heures)
+                <Input
+                  maxLength={80}
+                  value={form.duration}
+                  onChange={(event) =>
+                    setForm({ ...form, duration: event.target.value })
+                  }
+                />
+              </label>
+              <div className="flex flex-col gap-3 sm:col-span-2">
+                <label
+                  htmlFor="trainer-course-banner"
+                  className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 px-4 py-5 text-center transition-colors hover:bg-muted/60"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Upload className="h-5 w-5" />
+                  </span>
+                  <span className="text-sm font-semibold">
+                    {bannerFile
+                      ? bannerFile.name
+                      : "Choisir une image depuis votre ordinateur"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    JPG, PNG ou WebP · 5 Mo maximum
+                  </span>
+                  <input
+                    ref={bannerInputRef}
+                    id="trainer-course-banner"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={saving}
+                    onChange={handleBannerChange}
+                    className="sr-only"
+                  />
+                </label>
+                {bannerFile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="self-start"
+                    disabled={saving}
+                    onClick={() => selectBannerFile(null)}
+                  >
+                    <X className="h-4 w-4" />
+                    Retirer l’image choisie
+                  </Button>
+                )}
+                <label className="flex flex-col gap-1.5 text-sm">
+                  Ou utiliser un lien HTTPS (facultatif)
+                  <Input
+                    type="url"
+                    maxLength={2048}
+                    placeholder="https://exemple.com/image.jpg"
+                    value={form.coverImageUrl}
+                    disabled={Boolean(bannerFile) || saving}
+                    onChange={(event) =>
+                      setForm({ ...form, coverImageUrl: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              {(bannerPreviewUrl || form.coverImageUrl.trim()) && (
+                <Image
+                  src={bannerPreviewUrl || form.coverImageUrl.trim()}
+                  alt="Aperçu de la couverture du cours"
+                  width={800}
+                  height={450}
+                  unoptimized
+                  className="max-h-48 w-full rounded-xl border object-cover sm:col-span-2"
+                />
+              )}
+              <label className="flex flex-col gap-1.5 text-sm">
+                Nombre de leçons
+                <Input
+                  required
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={form.lessons}
+                  onChange={(event) =>
+                    setForm({ ...form, lessons: event.target.value })
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+                Sujets séparés par des virgules
+                <Input
+                  value={form.subjects}
+                  onChange={(event) =>
+                    setForm({ ...form, subjects: event.target.value })
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+                Description du cours
+                <textarea
+                  required
+                  minLength={10}
+                  maxLength={5000}
+                  rows={4}
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm({ ...form, description: event.target.value })
+                  }
+                  className="rounded-xl border border-input bg-background px-4 py-3 text-sm"
+                />
+              </label>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Le cours sera enregistré en brouillon. La publication et la
+                configuration des tarifs restent réservées à un administrateur.
+              </p>
               <div className="flex gap-2 sm:col-span-2">
                 <Button type="submit" disabled={saving}>
                   {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
@@ -268,8 +565,8 @@ export default function TrainerCoursesPage() {
                   onClick={() => {
                     setEditing(null);
                     setCreating(false);
-                    setTitle("");
-                    setDescription("");
+                    setForm(emptyForm);
+                    selectBannerFile(null);
                   }}
                 >
                   Annuler
@@ -300,7 +597,7 @@ export default function TrainerCoursesPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
                     <Button
                       size="sm"
                       variant="outline"
@@ -325,8 +622,8 @@ export default function TrainerCoursesPage() {
                       onClick={() => {
                         setEditing(null);
                         setSelected(course);
-                        setTitle("");
-                        setDescription("");
+                        setForm(emptyForm);
+                        selectBannerFile(null);
                         setError("");
                       }}
                     >
@@ -406,6 +703,5 @@ export default function TrainerCoursesPage() {
           />
         )}
       </div>
-    </main>
-  );
+    );
 }

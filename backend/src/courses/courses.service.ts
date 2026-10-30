@@ -192,6 +192,12 @@ export class CoursesService {
         id: true,
         title: true,
         description: true,
+        level: true,
+        language: true,
+        duration: true,
+        coverImageUrl: true,
+        lessons: true,
+        subjects: true,
         active: true,
         updatedAt: true,
         _count: { select: { registrations: true } },
@@ -260,11 +266,29 @@ export class CoursesService {
       data: {
         title: input.title?.trim(),
         description: input.description?.trim(),
+        language: input.language?.trim(),
+        level: input.level?.trim(),
+        duration: input.duration?.trim(),
+        coverImageUrl:
+          input.coverImageUrl === undefined
+            ? undefined
+            : input.coverImageUrl?.trim() || null,
+        lessons: input.lessons,
+        subjects:
+          input.subjects === undefined
+            ? undefined
+            : this.cleanSubjects(input.subjects),
       },
       select: {
         id: true,
         title: true,
         description: true,
+        level: true,
+        language: true,
+        duration: true,
+        coverImageUrl: true,
+        lessons: true,
+        subjects: true,
         active: true,
       },
     });

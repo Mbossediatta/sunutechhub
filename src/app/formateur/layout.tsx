@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { TrainerDashboardShell } from "@/components/formateur/trainer-dashboard-shell";
 import { getAuthenticatedUser } from "@/lib/backend-auth";
 
 export const instant = false;
@@ -33,5 +34,16 @@ export default async function TrainerLayout({
     redirect("/admin/login");
   }
 
-  return children;
+  const name =
+    "name" in user && typeof user.name === "string" && user.name.trim()
+      ? user.name
+      : "Formateur";
+  const email =
+    "email" in user && typeof user.email === "string" ? user.email : "";
+
+  return (
+    <TrainerDashboardShell name={name} email={email}>
+      {children}
+    </TrainerDashboardShell>
+  );
 }

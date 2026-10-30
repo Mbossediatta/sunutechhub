@@ -253,6 +253,42 @@ describe('CoursesService course content', () => {
     );
   });
 
+  it('lets trainers update descriptive course fields without changing admin settings', async () => {
+    prisma.course.findFirst.mockResolvedValue({
+      id: 'course-1',
+      instructorId: 'trainer-1',
+    });
+    prisma.course.update.mockResolvedValue({ id: 'course-1' });
+
+    await courses.updateTrainerCourse('trainer-1', 'course-1', {
+      title: 'Cours modifié',
+      description: 'Une description suffisamment longue.',
+      language: 'Français',
+      level: 'Intermédiaire',
+      duration: '8 heures',
+      coverImageUrl: 'https://example.com/cover.jpg',
+      lessons: 4,
+      subjects: ['Bases', 'Pratique'],
+      active: true,
+      isFree: true,
+    });
+
+    expect(prisma.course.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          title: 'Cours modifié',
+          description: 'Une description suffisamment longue.',
+          language: 'Français',
+          level: 'Intermédiaire',
+          duration: '8 heures',
+          coverImageUrl: 'https://example.com/cover.jpg',
+          lessons: 4,
+          subjects: ['Bases', 'Pratique'],
+        },
+      }),
+    );
+  });
+
   it('does not let a trainer edit content on another instructor’s course', async () => {
     prisma.course.findFirst.mockResolvedValue(null);
 

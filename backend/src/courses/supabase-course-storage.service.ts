@@ -49,6 +49,37 @@ export class SupabaseCourseStorageService {
     size: number,
     contentType: string,
   ) {
+    return this.createSignedCourseBannerUpload(
+      'course-banners',
+      filename,
+      size,
+      contentType,
+    );
+  }
+
+  async createSignedTrainerBannerUpload(
+    instructorId: string,
+    filename: string,
+    size: number,
+    contentType: string,
+  ) {
+    if (!/^[A-Za-z0-9_-]+$/.test(instructorId)) {
+      throw new BadRequestException('Le compte formateur est invalide.');
+    }
+    return this.createSignedCourseBannerUpload(
+      `course-banners/trainers/${instructorId}`,
+      filename,
+      size,
+      contentType,
+    );
+  }
+
+  private async createSignedCourseBannerUpload(
+    pathPrefix: string,
+    filename: string,
+    size: number,
+    contentType: string,
+  ) {
     const extensionByType: Record<string, string> = {
       'image/jpeg': '.jpg',
       'image/png': '.png',
@@ -68,7 +99,7 @@ export class SupabaseCourseStorageService {
       .replace(/_{2,}/g, '_')
       .slice(-120)
       .replace(/\.[^.]*$/, '');
-    const path = `course-banners/${randomUUID()}-${safeName || 'banner'}${extension}`;
+    const path = `${pathPrefix}/${randomUUID()}-${safeName || 'banner'}${extension}`;
     const { baseUrl, serviceKey } = this.storageConfig();
     const bucket = this.config.get<string>(
       'SUPABASE_COURSE_BANNERS_BUCKET',
@@ -399,6 +430,7 @@ export class SupabaseCourseStorageService {
         signedUrl = null;
       }
     }
+
     if (!token || !signedUrl) {
       throw new BadGatewayException(
         'Supabase Storage n’a pas renvoyé de lien de téléversement valide.',
@@ -495,6 +527,16 @@ export class SupabaseCourseStorageService {
     ).toString();
   }
 
+  async verifyUploadedTrainerBanner(
+    instructorId: string,
+    path: string,
+    expectedSize: number,
+    contentType: string,
+  ) {
+    this.requireTrainerBannerPath(path, instructorId);
+    return this.verifyUploadedBanner(path, expectedSize, contentType);
+  }
+
   async deleteCourseBanner(path: string) {
     const objectPath = this.requireBannerPath(path);
     const { baseUrl, serviceKey } = this.storageConfig();
@@ -524,6 +566,11 @@ export class SupabaseCourseStorageService {
       );
     }
     return { deleted: true };
+  }
+
+  async deleteTrainerCourseBanner(instructorId: string, path: string) {
+    this.requireTrainerBannerPath(path, instructorId);
+    return this.deleteCourseBanner(path);
   }
 
   async verifyUploadedPdf(
@@ -689,11 +736,24 @@ export class SupabaseCourseStorageService {
       ? path.slice('storage://'.length)
       : path;
     if (
-      !/^course-banners\/[A-Za-z0-9-]+-[A-Za-z0-9._-]+\.(jpg|png|webp)$/i.test(
+      !/^course-banners\/(?:[A-Za-z0-9-]+-[A-Za-z0-9._-]+|trainers\/[A-Za-z0-9_-]+\/[A-Za-z0-9-]+-[A-Za-z0-9._-]+)\.(jpg|png|webp)$/i.test(
         objectPath,
       )
     ) {
       throw new BadRequestException('Le chemin de la bannière est invalide.');
+    }
+    return objectPath;
+  }
+
+  private requireTrainerBannerPath(path: string, instructorId: string) {
+    const objectPath = this.requireBannerPath(path);
+    if (!/^[A-Za-z0-9_-]+$/.test(instructorId)) {
+      throw new BadRequestException('Le compte formateur est invalide.');
+    }
+    if (!objectPath.startsWith(`course-banners/trainers/${instructorId}/`)) {
+      throw new BadRequestException(
+        'Cette bannière temporaire ne vous appartient pas.',
+      );
     }
     return objectPath;
   }

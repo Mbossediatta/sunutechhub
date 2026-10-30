@@ -95,7 +95,10 @@ export class CoursesController {
 @Roles(UserRole.FORMATEUR)
 @Controller('trainer/courses')
 export class TrainerCoursesController {
-  constructor(private readonly courses: CoursesService) {}
+  constructor(
+    private readonly courses: CoursesService,
+    private readonly storage: SupabaseCourseStorageService,
+  ) {}
 
   @Get()
   list(@Req() request: AuthenticatedRequest) {
@@ -105,6 +108,41 @@ export class TrainerCoursesController {
   @Post()
   create(@Body() body: CreateCourseDto, @Req() request: AuthenticatedRequest) {
     return this.courses.createTrainerCourse(request.user.id, body);
+  }
+
+  @Post('banner/upload-url')
+  createBannerUploadUrl(
+    @Body() body: CreateCourseBannerUploadDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.storage.createSignedTrainerBannerUpload(
+      request.user.id,
+      body.filename,
+      body.size,
+      body.contentType,
+    );
+  }
+
+  @Post('banner/verify-upload')
+  async verifyBannerUpload(
+    @Body() body: VerifyCourseBannerUploadDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const coverImageUrl = await this.storage.verifyUploadedTrainerBanner(
+      request.user.id,
+      body.path,
+      body.size,
+      body.contentType,
+    );
+    return { coverImageUrl };
+  }
+
+  @Delete('banner/upload')
+  deleteTemporaryBannerUpload(
+    @Body() body: DeleteCourseBannerUploadDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.storage.deleteTrainerCourseBanner(request.user.id, body.path);
   }
 
   @Patch(':id')

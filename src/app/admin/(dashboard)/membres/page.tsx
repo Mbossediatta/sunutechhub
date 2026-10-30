@@ -115,6 +115,9 @@ export default function AdminMembresPage() {
       }
       setInstructorName("");
       setInstructorEmail("");
+      setRole("FORMATEUR");
+      setSearch("");
+      pagination.setPage(1);
       setNotice(
         "Le compte formateur est créé et son invitation de connexion a été envoyée par e-mail.",
       );
