@@ -72,10 +72,14 @@ function ContentIcon({ type }: { type: ContentType }) {
 export function CourseContentManager({
   courseId,
   courseTitle,
+  apiBase = "/api/admin/courses",
+  uploadsEnabled = true,
   onClose,
 }: {
   courseId: string;
   courseTitle: string;
+  apiBase?: string;
+  uploadsEnabled?: boolean;
   onClose: () => void;
 }) {
   const [contents, setContents] = useState<CourseContent[]>([]);
@@ -88,13 +92,14 @@ export function CourseContentManager({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const pagination = usePagination(contents);
+  const contentEndpoint = `${apiBase}/${encodeURIComponent(courseId)}/content`;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const response = await fetch(
-        `/api/admin/courses/${encodeURIComponent(courseId)}/content`,
+        contentEndpoint,
         { cache: "no-store" },
       );
       const result: unknown = await response.json().catch(() => null);
@@ -121,7 +126,7 @@ export function CourseContentManager({
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [contentEndpoint]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -167,7 +172,7 @@ export function CourseContentManager({
       let contentUrl = form.url.trim();
       if (form.type === "RESOURCE" && pdfFile) {
         const uploadResponse = await fetch(
-          `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload-url`,
+          `${contentEndpoint}/upload-url`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -214,7 +219,7 @@ export function CourseContentManager({
         uploadedPdfPath = uploadResult.path;
 
         const verifyResponse = await fetch(
-          `/api/admin/courses/${encodeURIComponent(courseId)}/content/verify-upload`,
+          `${contentEndpoint}/verify-upload`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -260,8 +265,8 @@ export function CourseContentManager({
         published: form.published,
       };
       const endpoint = editing
-        ? `/api/admin/courses/${encodeURIComponent(courseId)}/content/${encodeURIComponent(editing.id)}`
-        : `/api/admin/courses/${encodeURIComponent(courseId)}/content`;
+        ? `${contentEndpoint}/${encodeURIComponent(editing.id)}`
+        : contentEndpoint;
       const response = await fetch(endpoint, {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -293,7 +298,7 @@ export function CourseContentManager({
       ) {
         try {
           const oldPdfCleanup = await fetch(
-            `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload`,
+            `${contentEndpoint}/upload`,
             {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -319,7 +324,7 @@ export function CourseContentManager({
       if (uploadedPdfPath) {
         try {
           const cleanupResponse = await fetch(
-            `/api/admin/courses/${encodeURIComponent(courseId)}/content/upload`,
+            `${contentEndpoint}/upload`,
             {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -347,7 +352,7 @@ export function CourseContentManager({
     setNotice("");
     try {
       const response = await fetch(
-        `/api/admin/courses/${encodeURIComponent(courseId)}/content/${encodeURIComponent(content.id)}`,
+        `${contentEndpoint}/${encodeURIComponent(content.id)}`,
         { method: "DELETE" },
       );
       const result: unknown = await response.json().catch(() => null);
@@ -459,11 +464,14 @@ export function CourseContentManager({
             {form.type === "LIVE_SESSION"
               ? "Lien Google Meet ou Zoom"
               : form.type === "RESOURCE"
-                ? "Lien HTTPS du support (facultatif si tu ajoutes un PDF)"
+                ? uploadsEnabled
+                  ? "Lien HTTPS du support (facultatif si tu ajoutes un PDF)"
+                  : "Lien HTTPS du support"
                 : "Lien HTTPS de la vidéo"}
             <Input
               required={
                 form.type !== "RESOURCE" ||
+                !uploadsEnabled ||
                 (!pdfFile && !form.url.startsWith("storage://"))
               }
               type="url"
@@ -480,7 +488,7 @@ export function CourseContentManager({
             />
           </label>
         )}
-        {form.type === "RESOURCE" && (
+        {form.type === "RESOURCE" && uploadsEnabled && (
           <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
             {form.url.startsWith("storage://")
               ? "PDF actuellement enregistré (un nouveau fichier le remplacera)"

@@ -47,7 +47,16 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin");
+      const role =
+        result &&
+        typeof result === "object" &&
+        "user" in result &&
+        result.user &&
+        typeof result.user === "object" &&
+        "role" in result.user
+          ? result.user.role
+          : null;
+      router.push(role === "FORMATEUR" ? "/formateur" : "/admin");
       router.refresh();
     } catch {
       setError("Impossible de joindre le serveur. Réessaie dans un instant.");
@@ -71,10 +80,10 @@ export default function AdminLoginPage() {
             <ShieldCheck className="h-8 w-8 text-white" />
           </div>
           <h2 className="font-bricolage text-3xl font-bold text-white mb-3">
-            Espace Administrateur
+            Espace de gestion
           </h2>
           <p className="text-slate-400 leading-relaxed">
-            Accès réservé aux administrateurs de Sunu Tech Hub. Toutes les actions sont enregistrées.
+            Connexion réservée aux administrateurs et aux formateurs autorisés de Sunu Tech Hub.
           </p>
 
           {/* Fonctionnalités admin */}

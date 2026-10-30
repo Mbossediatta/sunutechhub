@@ -35,6 +35,10 @@ export class CreateCourseDto {
 
   @IsOptional()
   @IsString()
+  instructorId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(80)
   duration?: string;
 

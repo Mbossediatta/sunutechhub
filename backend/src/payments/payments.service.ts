@@ -306,11 +306,7 @@ export class PaymentsService {
     return { received: true };
   }
 
-  async getPaymentReturn(
-    reference: string,
-    expiresAt: number,
-    token: string,
-  ) {
+  async getPaymentReturn(reference: string, expiresAt: number, token: string) {
     if (
       !reference ||
       !this.payTech.verifyPaymentReturnToken(reference, expiresAt, token)
@@ -464,6 +460,21 @@ export class PaymentsService {
     }
     await this.releaseFailedPayment(payment.id, PaymentStatus.CANCELLED);
     return { reference, status: PaymentStatus.CANCELLED };
+  }
+
+  async getStatus(reference: string, userId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { reference, userId },
+      select: {
+        reference: true,
+        status: true,
+        amountPaid: true,
+        currency: true,
+        course: { select: { id: true, title: true } },
+      },
+    });
+    if (!payment) throw new NotFoundException('Paiement introuvable.');
+    return payment;
   }
 
   private async getForUser(paymentId: string, userId: string) {

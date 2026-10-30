@@ -7,7 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { CourseContentType } from '@prisma/client';
+import { CourseContentType, UserRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../pricing/pricing.service.js';
@@ -65,6 +65,7 @@ export class CoursesService {
     const [courses, defaults] = await Promise.all([
       this.prisma.course.findMany({
         include: {
+          instructor: { select: { id: true, name: true, email: true } },
           _count: {
             select: {
               registrations: true,
@@ -103,14 +104,19 @@ export class CoursesService {
     return this.withPrices(course, defaults);
   }
 
-  create(input: CreateCourseDto) {
+  async create(input: CreateCourseDto) {
+    const instructor = input.instructorId
+      ? await this.requireInstructor(input.instructorId)
+      : null;
     return this.prisma.course.create({
       data: {
         title: input.title.trim(),
         description: input.description.trim(),
         language: input.language?.trim() || 'Français',
         level: input.level?.trim() || 'Débutant',
-        instructorName: input.instructorName?.trim() || 'Sunu Tech Hub',
+        instructorName:
+          instructor?.name ?? input.instructorName?.trim() ?? 'Sunu Tech Hub',
+        instructorId: instructor?.id ?? null,
         duration: input.duration?.trim() || '',
         coverImageUrl: input.coverImageUrl?.trim() || null,
         lessons: input.lessons ?? 0,
@@ -124,15 +130,24 @@ export class CoursesService {
   async update(id: string, input: UpdateCourseDto) {
     const current = await this.prisma.course.findUnique({ where: { id } });
     if (!current) throw new NotFoundException('Cours introuvable.');
+    const instructor =
+      input.instructorId && input.instructorId !== current.instructorId
+        ? await this.requireInstructor(input.instructorId)
+        : null;
     const updated = await this.prisma.course.update({
       where: { id },
       data: {
         ...input,
+        instructorName:
+          instructor?.name ??
+          (input.instructorId === null
+            ? input.instructorName?.trim() || 'Sunu Tech Hub'
+            : input.instructorName?.trim()),
+        instructorId: input.instructorId,
         title: input.title?.trim(),
         description: input.description?.trim(),
         language: input.language?.trim(),
         level: input.level?.trim(),
-        instructorName: input.instructorName?.trim(),
         duration: input.duration?.trim(),
         subjects:
           input.subjects === undefined
@@ -141,6 +156,151 @@ export class CoursesService {
       },
     });
     return updated;
+  }
+
+  async createTrainerCourse(userId: string, input: CreateCourseDto) {
+    const instructor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true },
+    });
+    if (!instructor || instructor.role !== UserRole.FORMATEUR) {
+      throw new NotFoundException('Compte formateur introuvable.');
+    }
+
+    return this.prisma.course.create({
+      data: {
+        title: input.title.trim(),
+        description: input.description.trim(),
+        language: input.language?.trim() || 'Français',
+        level: input.level?.trim() || 'Débutant',
+        instructorName: instructor.name,
+        instructorId: userId,
+        duration: input.duration?.trim() || '',
+        coverImageUrl: input.coverImageUrl?.trim() || null,
+        lessons: input.lessons ?? 0,
+        subjects: this.cleanSubjects(input.subjects ?? []),
+        isFree: false,
+        active: false,
+      },
+    });
+  }
+
+  listTrainerCourses(instructorId: string) {
+    return this.prisma.course.findMany({
+      where: { instructorId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        active: true,
+        updatedAt: true,
+        _count: { select: { registrations: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  async getTrainerProgress(instructorId: string, courseId: string) {
+    const course = await this.prisma.course.findFirst({
+      where: { id: courseId, instructorId },
+      select: {
+        id: true,
+        title: true,
+        registrations: {
+          select: {
+            level: true,
+            createdAt: true,
+            endsAt: true,
+            user: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        _count: {
+          select: { contents: { where: { published: true } } },
+        },
+      },
+    });
+    if (!course) throw new NotFoundException('Cours introuvable.');
+
+    const completions = await this.prisma.lessonProgress.findMany({
+      where: { courseId },
+      select: { userId: true },
+    });
+    const completedByUser = new Map<string, number>();
+    for (const completion of completions) {
+      completedByUser.set(
+        completion.userId,
+        (completedByUser.get(completion.userId) ?? 0) + 1,
+      );
+    }
+
+    return {
+      courseId: course.id,
+      courseTitle: course.title,
+      totalLessons: course._count.contents,
+      students: course.registrations.map((registration) => ({
+        id: registration.user.id,
+        name: registration.user.name,
+        level: registration.level,
+        registeredAt: registration.createdAt,
+        endsAt: registration.endsAt,
+        completed: completedByUser.get(registration.user.id) ?? 0,
+      })),
+    };
+  }
+
+  async updateTrainerCourse(
+    instructorId: string,
+    courseId: string,
+    input: UpdateCourseDto,
+  ) {
+    await this.requireInstructorCourse(instructorId, courseId);
+    return this.prisma.course.update({
+      where: { id: courseId },
+      data: {
+        title: input.title?.trim(),
+        description: input.description?.trim(),
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        active: true,
+      },
+    });
+  }
+
+  async listTrainerContent(instructorId: string, courseId: string) {
+    await this.requireInstructorCourse(instructorId, courseId);
+    return this.listAdminContent(courseId);
+  }
+
+  async createTrainerContent(
+    instructorId: string,
+    courseId: string,
+    input: Parameters<CoursesService['createContent']>[1],
+  ) {
+    await this.requireInstructorCourse(instructorId, courseId);
+    return this.createContent(courseId, input);
+  }
+
+  async updateTrainerContent(
+    instructorId: string,
+    courseId: string,
+    contentId: string,
+    input: Parameters<CoursesService['updateContent']>[2],
+  ) {
+    await this.requireInstructorCourse(instructorId, courseId);
+    return this.updateContent(courseId, contentId, input);
+  }
+
+  async deleteTrainerContent(
+    instructorId: string,
+    courseId: string,
+    contentId: string,
+  ) {
+    await this.requireInstructorCourse(instructorId, courseId);
+    return this.deleteContent(courseId, contentId);
   }
 
   async updatePrices(
@@ -533,6 +693,30 @@ export class CoursesService {
     });
     if (!course) throw new NotFoundException('Cours introuvable.');
     return course;
+  }
+
+  private async requireInstructorCourse(
+    instructorId: string,
+    courseId: string,
+  ) {
+    const course = await this.prisma.course.findFirst({
+      where: { id: courseId, instructorId },
+      select: { id: true },
+    });
+    if (!course) throw new NotFoundException('Cours introuvable.');
+  }
+
+  private async requireInstructor(instructorId: string) {
+    const instructor = await this.prisma.user.findUnique({
+      where: { id: instructorId },
+      select: { id: true, name: true, role: true },
+    });
+    if (!instructor || instructor.role !== UserRole.FORMATEUR) {
+      throw new BadRequestException(
+        'Le compte sélectionné n’est pas formateur.',
+      );
+    }
+    return instructor;
   }
 
   private contentSchedule(type: CourseContentType, value?: string | null) {

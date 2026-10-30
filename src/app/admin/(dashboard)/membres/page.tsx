@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Search, Users } from "lucide-react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { LoaderCircle, Search, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
@@ -11,7 +12,7 @@ type Member = {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "MEMBER";
+  role: "ADMIN" | "FORMATEUR" | "MEMBER";
   createdAt: string;
   registrations: { id: string; course: { id: string; title: string } }[];
   _count: { registrations: number; payments: number; projects: number };
@@ -30,8 +31,12 @@ export default function AdminMembresPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("ALL");
+  const [instructorName, setInstructorName] = useState("");
+  const [instructorEmail, setInstructorEmail] = useState("");
+  const [creatingInstructor, setCreatingInstructor] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +83,52 @@ export default function AdminMembresPage() {
   const pagination = usePagination(filtered);
   const memberCount = members.filter((member) => member.role === "MEMBER").length;
   const adminCount = members.filter((member) => member.role === "ADMIN").length;
+  const instructorCount = members.filter(
+    (member) => member.role === "FORMATEUR",
+  ).length;
+
+  const createInstructor = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creatingInstructor) return;
+    setCreatingInstructor(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/instructors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: instructorName,
+          email: instructorEmail,
+        }),
+      });
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          result &&
+          typeof result === "object" &&
+          "message" in result &&
+          typeof result.message === "string"
+            ? result.message
+            : "Impossible de créer le compte formateur.";
+        throw new Error(message);
+      }
+      setInstructorName("");
+      setInstructorEmail("");
+      setNotice(
+        "Le compte formateur est créé et son invitation de connexion a été envoyée par e-mail.",
+      );
+      await load();
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Impossible de créer le compte formateur.",
+      );
+    } finally {
+      setCreatingInstructor(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -86,10 +137,16 @@ export default function AdminMembresPage() {
           ! {error}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {notice && (
+        <p role="status" className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary">
+          {notice}
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Comptes affichés", value: loading ? "…" : members.length },
           { label: "Membres", value: loading ? "…" : memberCount },
+          { label: "Formateurs", value: loading ? "…" : instructorCount },
           { label: "Administrateurs", value: loading ? "…" : adminCount },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border bg-card p-4 text-center">
@@ -100,6 +157,47 @@ export default function AdminMembresPage() {
           </div>
         ))}
       </div>
+      <form
+        onSubmit={createInstructor}
+        className="grid gap-3 rounded-2xl border bg-card p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+      >
+        <div>
+          <label htmlFor="instructor-name" className="mb-1.5 block text-sm font-medium">
+            Nom du formateur
+          </label>
+          <Input
+            id="instructor-name"
+            required
+            minLength={2}
+            maxLength={100}
+            value={instructorName}
+            onChange={(event) => setInstructorName(event.target.value)}
+            placeholder="Prénom et nom"
+          />
+        </div>
+        <div>
+          <label htmlFor="instructor-email" className="mb-1.5 block text-sm font-medium">
+            Adresse e-mail
+          </label>
+          <Input
+            id="instructor-email"
+            required
+            type="email"
+            maxLength={254}
+            value={instructorEmail}
+            onChange={(event) => setInstructorEmail(event.target.value)}
+            placeholder="formateur@exemple.com"
+          />
+        </div>
+        <Button type="submit" disabled={creatingInstructor}>
+          {creatingInstructor ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4" />
+          )}
+          Inviter un formateur
+        </Button>
+      </form>
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -117,6 +215,7 @@ export default function AdminMembresPage() {
         >
           <option value="ALL">Tous les rôles</option>
           <option value="MEMBER">Membres</option>
+          <option value="FORMATEUR">Formateurs</option>
           <option value="ADMIN">Administrateurs</option>
         </select>
       </div>
@@ -156,7 +255,11 @@ export default function AdminMembresPage() {
                   </td>
                   <td className="p-3">
                     <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                      {member.role === "ADMIN" ? "Administration" : "Membre"}
+                      {member.role === "ADMIN"
+                        ? "Administration"
+                        : member.role === "FORMATEUR"
+                          ? "Formateur"
+                          : "Membre"}
                     </span>
                   </td>
                   <td className="p-3">
@@ -196,8 +299,8 @@ export default function AdminMembresPage() {
         onPageSizeChange={pagination.setPageSize}
       />
       <p className="text-xs text-muted-foreground">
-        L’API actuelle gère les rôles membre et administrateur. Les autres rôles,
-        suspensions et bannissements ne sont pas encore pris en charge.
+        Les formateurs reçoivent un lien de connexion par e-mail et n’accèdent
+        qu’aux cours qui leur sont attribués ou qu’ils ont créés.
       </p>
     </div>
   );

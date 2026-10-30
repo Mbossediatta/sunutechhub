@@ -14,7 +14,9 @@ export class AdminService {
       }),
       this.prisma.priceSetting.findMany(),
     ]);
-    const settings = new Map(defaults.map(({ key, value }) => [key, Number(value)]));
+    const settings = new Map(
+      defaults.map(({ key, value }) => [key, Number(value)]),
+    );
     return courses.map((course) => ({
       ...course,
       prices: {
@@ -61,6 +63,14 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 500,
+    });
+  }
+
+  listInstructors() {
+    return this.prisma.user.findMany({
+      where: { role: UserRole.FORMATEUR },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
     });
   }
 

@@ -18,6 +18,7 @@ const navLinks = [
   { href: "/emplois", label: "Emplois" },
   { href: "/evenements", label: "Événements" },
 ];
+const ANNOUNCEMENT_DISPLAY_MS = 5_000;
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -55,7 +56,7 @@ function HeaderNav() {
   const [user, setUser] = useState<{
     id: string;
     name: string;
-    role: "MEMBER" | "ADMIN";
+    role: "MEMBER" | "FORMATEUR" | "ADMIN";
   } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -88,7 +89,9 @@ function HeaderNav() {
           !("name" in result) ||
           typeof result.name !== "string" ||
           !("role" in result) ||
-          (result.role !== "MEMBER" && result.role !== "ADMIN")
+          (result.role !== "MEMBER" &&
+            result.role !== "FORMATEUR" &&
+            result.role !== "ADMIN")
         ) {
           throw new Error("Réponse de session invalide.");
         }
@@ -107,6 +110,8 @@ function HeaderNav() {
   }, [pathname, refreshSession]);
 
   useEffect(() => {
+    let announcementTimer: ReturnType<typeof setTimeout> | undefined;
+
     void Promise.all([
       fetch("/api/platform-settings", { cache: "no-store" }).then(
         async (response) => {
@@ -155,6 +160,10 @@ function HeaderNav() {
                 body: first.body,
                 link: first.link,
               });
+              announcementTimer = setTimeout(
+                () => setAnnouncement(null),
+                ANNOUNCEMENT_DISPLAY_MS,
+              );
             }
           }
         },
@@ -162,6 +171,10 @@ function HeaderNav() {
     ]).catch(() => {
       // The public header keeps its local branding if the settings service is unavailable.
     });
+
+    return () => {
+      if (announcementTimer) clearTimeout(announcementTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -264,6 +277,16 @@ function HeaderNav() {
                     asChild
                   >
                     <Link href="/admin">Administration</Link>
+                  </Button>
+                )}
+                {user.role === "FORMATEUR" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-xl"
+                    asChild
+                  >
+                    <Link href="/formateur">Espace formateur</Link>
                   </Button>
                 )}
                 <Button
@@ -373,6 +396,15 @@ function HeaderNav() {
                     className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
                   >
                     Administration
+                  </Link>
+                )}
+                {user.role === "FORMATEUR" && (
+                  <Link
+                    href="/formateur"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+                  >
+                    Espace formateur
                   </Link>
                 )}
                 <Link

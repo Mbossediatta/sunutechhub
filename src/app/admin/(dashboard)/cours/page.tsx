@@ -15,6 +15,8 @@ type AdminCourse = {
   level: string;
   language: string;
   instructorName: string;
+  instructorId: string | null;
+  instructor: { id: string; name: string; email: string } | null;
   duration: string;
   coverImageUrl: string | null;
   lessons: number;
@@ -42,6 +44,7 @@ type CourseForm = {
   level: string;
   language: string;
   instructorName: string;
+  instructorId: string;
   duration: string;
   coverImageUrl: string;
   lessons: string;
@@ -60,6 +63,7 @@ const emptyForm: CourseForm = {
   level: "Débutant",
   language: "Français",
   instructorName: "Sunu Tech Hub",
+  instructorId: "",
   duration: "",
   coverImageUrl: "",
   lessons: "0",
@@ -81,6 +85,7 @@ function toForm(course: AdminCourse): CourseForm {
     level: course.level,
     language: course.language,
     instructorName: course.instructorName,
+    instructorId: course.instructorId ?? "",
     duration: course.duration,
     coverImageUrl: course.coverImageUrl ?? "",
     lessons: String(course.lessons),
@@ -104,6 +109,9 @@ function parsePrice(value: string) {
 
 export default function AdminCoursPage() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
+  const [instructors, setInstructors] = useState<
+    { id: string; name: string; email: string }[]
+  >([]);
   const [contentCourse, setContentCourse] = useState<AdminCourse | null>(null);
   const [form, setForm] = useState<CourseForm>(emptyForm);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -139,9 +147,15 @@ export default function AdminCoursPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/courses", { cache: "no-store" });
-      const result: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
+      const [response, instructorResponse] = await Promise.all([
+        fetch("/api/admin/courses", { cache: "no-store" }),
+        fetch("/api/admin/instructors", { cache: "no-store" }),
+      ]);
+      const [result, instructorResult]: [unknown, unknown] = await Promise.all([
+        response.json().catch(() => null),
+        instructorResponse.json().catch(() => null),
+      ]);
+      if (!response.ok || !instructorResponse.ok) {
         const message =
           result && typeof result === "object" && "message" in result && typeof result.message === "string"
             ? result.message
@@ -149,7 +163,13 @@ export default function AdminCoursPage() {
         throw new Error(message);
       }
       if (!Array.isArray(result)) throw new Error("Réponse des cours invalide.");
+      if (!Array.isArray(instructorResult)) {
+        throw new Error("Réponse des formateurs invalide.");
+      }
       setCourses(result as AdminCourse[]);
+      setInstructors(
+        instructorResult as { id: string; name: string; email: string }[],
+      );
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Impossible de charger les cours.");
     } finally {
@@ -284,6 +304,7 @@ export default function AdminCoursPage() {
         level: form.level,
         language: form.language,
         instructorName: form.instructorName,
+        instructorId: form.instructorId || null,
         duration: form.duration,
         coverImageUrl,
         lessons,
@@ -394,6 +415,23 @@ export default function AdminCoursPage() {
           <Input maxLength={100} placeholder="Langue" value={form.language} onChange={(event) => setForm({ ...form, language: event.target.value })} />
           <Input maxLength={80} placeholder="Niveau" value={form.level} onChange={(event) => setForm({ ...form, level: event.target.value })} />
           <Input maxLength={180} placeholder="Formateur" value={form.instructorName} onChange={(event) => setForm({ ...form, instructorName: event.target.value })} />
+          <label className="flex flex-col gap-1.5 text-sm">
+            Compte formateur associé
+            <select
+              value={form.instructorId}
+              onChange={(event) =>
+                setForm({ ...form, instructorId: event.target.value })
+              }
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Aucun compte formateur</option>
+              {instructors.map((instructor) => (
+                <option key={instructor.id} value={instructor.id}>
+                  {instructor.name} — {instructor.email}
+                </option>
+              ))}
+            </select>
+          </label>
           <Input maxLength={80} placeholder="Durée (ex. 8 heures)" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
           <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
             Photo de bannière du cours (facultative)
@@ -464,7 +502,7 @@ export default function AdminCoursPage() {
               <tr><td colSpan={5} className="p-8 text-center text-muted-foreground"><LoaderCircle className="mx-auto h-5 w-5 animate-spin" /><span className="mt-2 block">Chargement des cours…</span></td></tr>
             ) : courses.length ? pagination.pageItems.map((course) => (
               <tr key={course.id} className="border-t">
-                <td className="p-3"><span className="flex items-center gap-2 font-medium">{course.coverImageUrl ? <img src={course.coverImageUrl} alt="" className="h-10 w-14 rounded-md object-cover" /> : <BookOpen className="h-4 w-4 shrink-0 text-primary" />}{course.title}</span><span className="ml-6 text-xs text-muted-foreground">{course.lessons} leçons · {course.duration || "Durée non précisée"}</span></td>
+                <td className="p-3"><span className="flex items-center gap-2 font-medium">{course.coverImageUrl ? <img src={course.coverImageUrl} alt="" className="h-10 w-14 rounded-md object-cover" /> : <BookOpen className="h-4 w-4 shrink-0 text-primary" />}{course.title}</span><span className="ml-6 text-xs text-muted-foreground">{course.lessons} leçons · {course.duration || "Durée non précisée"}</span><span className="ml-6 block text-xs text-muted-foreground">Formateur : {course.instructor?.name ?? course.instructorName}</span></td>
                 <td className="p-3 text-xs text-muted-foreground">{course.level} · {course.language}</td>
                 <td className="p-3">{course._count.registrations}</td>
                 <td className="p-3">{course.isFree ? <span className="text-xs font-medium text-primary">Gratuit</span> : <span className="flex items-start gap-1.5 text-xs"><BadgeDollarSign className="mt-0.5 h-3.5 w-3.5 text-primary" /><span>Base {formatPrice(course.prices.base, course.prices.currency)}<br />Avancée {formatPrice(course.prices.advanced, course.prices.currency)}</span></span>}<span className="mt-1 block text-[10px] text-muted-foreground">Accès : {course.prices.accessDays} jours</span></td>

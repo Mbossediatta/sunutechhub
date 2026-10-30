@@ -92,6 +92,84 @@ export class CoursesController {
   }
 }
 
+@Roles(UserRole.FORMATEUR)
+@Controller('trainer/courses')
+export class TrainerCoursesController {
+  constructor(private readonly courses: CoursesService) {}
+
+  @Get()
+  list(@Req() request: AuthenticatedRequest) {
+    return this.courses.listTrainerCourses(request.user.id);
+  }
+
+  @Post()
+  create(@Body() body: CreateCourseDto, @Req() request: AuthenticatedRequest) {
+    return this.courses.createTrainerCourse(request.user.id, body);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() body: UpdateCourseDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.updateTrainerCourse(request.user.id, id, body);
+  }
+
+  @Get(':courseId/content')
+  listContent(
+    @Param('courseId') courseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.listTrainerContent(request.user.id, courseId);
+  }
+
+  @Get(':courseId/progress')
+  getProgress(
+    @Param('courseId') courseId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.getTrainerProgress(request.user.id, courseId);
+  }
+
+  @Post(':courseId/content')
+  createContent(
+    @Param('courseId') courseId: string,
+    @Body() body: CreateCourseContentDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.createTrainerContent(request.user.id, courseId, body);
+  }
+
+  @Patch(':courseId/content/:contentId')
+  updateContent(
+    @Param('courseId') courseId: string,
+    @Param('contentId') contentId: string,
+    @Body() body: UpdateCourseContentDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.updateTrainerContent(
+      request.user.id,
+      courseId,
+      contentId,
+      body,
+    );
+  }
+
+  @Delete(':courseId/content/:contentId')
+  deleteContent(
+    @Param('courseId') courseId: string,
+    @Param('contentId') contentId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.courses.deleteTrainerContent(
+      request.user.id,
+      courseId,
+      contentId,
+    );
+  }
+}
+
 @Roles(UserRole.ADMIN)
 @Controller('admin/courses')
 export class AdminCoursesController {

@@ -3,6 +3,7 @@ import { PricingModule } from '../pricing/pricing.module.js';
 import {
   AdminCoursesController,
   CoursesController,
+  TrainerCoursesController,
 } from './courses.controller.js';
 import { CoursesService } from './courses.service.js';
 import { CourseContentMailerService } from './course-content-mailer.service.js';
@@ -10,7 +11,11 @@ import { SupabaseCourseStorageService } from './supabase-course-storage.service.
 
 @Module({
   imports: [PricingModule],
-  controllers: [CoursesController, AdminCoursesController],
+  controllers: [
+    CoursesController,
+    AdminCoursesController,
+    TrainerCoursesController,
+  ],
   providers: [
     CoursesService,
     CourseContentMailerService,

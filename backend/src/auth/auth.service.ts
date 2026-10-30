@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthMailerService } from './auth-mailer.service.js';
 import type { RegisterDto } from './dto/register.dto.js';
@@ -83,7 +84,9 @@ export class AuthService {
         newsletterSubscribed: true,
         createdAt: true,
         registrations: {
-          include: { course: { select: { id: true, title: true, isFree: true } } },
+          include: {
+            course: { select: { id: true, title: true, isFree: true } },
+          },
           orderBy: { updatedAt: 'desc' },
         },
         _count: {
@@ -109,18 +112,18 @@ export class AuthService {
       where: { id: userId },
       data: {
         name: input.name?.trim(),
-        city:
-          input.city === undefined
-            ? undefined
-            : input.city?.trim() || null,
-        bio:
-          input.bio === undefined
-            ? undefined
-            : input.bio?.trim() || null,
+        city: input.city === undefined ? undefined : input.city?.trim() || null,
+        bio: input.bio === undefined ? undefined : input.bio?.trim() || null,
         interests:
           input.interests === undefined
             ? undefined
-            : [...new Set(input.interests.map((interest) => interest.trim()).filter(Boolean))],
+            : [
+                ...new Set(
+                  input.interests
+                    .map((interest) => interest.trim())
+                    .filter(Boolean),
+                ),
+              ],
         newsletterSubscribed: input.newsletterSubscribed,
         newsletterSubscribedAt:
           input.newsletterSubscribed === undefined
@@ -207,6 +210,41 @@ export class AuthService {
     return { message };
   }
 
+  async createInstructor(input: { name: string; email: string }) {
+    if (!this.mailer.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Configure l’envoi e-mail avant de créer un compte formateur.',
+      );
+    }
+
+    const email = input.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('Cette adresse e-mail est déjà utilisée.');
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        name: input.name.trim(),
+        email,
+        role: UserRole.FORMATEUR,
+        passwordHash: await hash(randomBytes(32).toString('hex'), 12),
+      },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    try {
+      await this.requestMagicLink(email);
+    } catch (error) {
+      await this.prisma.user.delete({ where: { id: user.id } });
+      throw error;
+    }
+    return { ...user, invitationSent: true };
+  }
+
   async verifyMagicLink(token: string) {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const now = new Date();
@@ -216,11 +254,7 @@ export class AuthService {
         user: { select: { id: true, name: true, email: true, role: true } },
       },
     });
-    if (
-      !tokenRecord ||
-      tokenRecord.usedAt ||
-      tokenRecord.expiresAt <= now
-    ) {
+    if (!tokenRecord || tokenRecord.usedAt || tokenRecord.expiresAt <= now) {
       throw new UnauthorizedException(
         'Ce lien de connexion est invalide ou a expiré. Demande-en un nouveau.',
       );

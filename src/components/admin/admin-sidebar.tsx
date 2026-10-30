@@ -35,7 +35,7 @@ const nav = [
   {
     label: "Contenu",
     items: [
-      { href: "/admin/membres", label: "Membres", icon: Users },
+      { href: "/admin/membres", label: "Membres & formateurs", icon: Users },
       { href: "/admin/questions", label: "Questions", icon: MessageSquare },
       { href: "/admin/cours", label: "Cours", icon: BookOpen },
       { href: "/admin/astuces", label: "Astuces", icon: Lightbulb },

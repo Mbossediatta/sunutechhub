@@ -9,6 +9,7 @@ datasource db {
 
 enum UserRole {
   MEMBER
+  FORMATEUR
   ADMIN
 }
 
@@ -130,6 +131,7 @@ model User {
   reviewedJobs             JobOffer[]               @relation("JobReviewer")
   auditLogs                AdminAuditLog[]
   newsletterDeliveries     NewsletterDelivery[]
+  instructedCourses        Course[]                 @relation("CourseInstructor")
 }
 
 model NewsletterSubscriber {
@@ -148,6 +150,7 @@ model Course {
   language         String               @default("Français")
   level            String               @default("Débutant")
   instructorName   String               @default("Sunu Tech Hub")
+  instructorId     String?
   duration         String               @default("")
   coverImageUrl    String?
   lessons          Int                  @default(0)
@@ -167,8 +170,10 @@ model Course {
   projects         CourseProject[]
   priceChanges     PriceChange[]
   attestations     Attestation[]
+  instructor       User?                @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
 
   @@index([active, createdAt])
+  @@index([instructorId])
 }
 
 model CourseContent {
@@ -191,15 +196,15 @@ model CourseContent {
 }
 
 model Tip {
-  id            String   @id @default(cuid())
-  slug          String   @unique
+  id            String       @id @default(cuid())
+  slug          String       @unique
   title         String
-  description   String   @default("")
-  htmlContent   String   @db.Text
+  description   String       @default("")
+  htmlContent   String       @db.Text
   narrationPath String?
-  published     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  published     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   comments      TipComment[]
   likes         TipLike[]
 
@@ -419,18 +424,18 @@ model CourseProject {
 }
 
 model ShowcaseProject {
-  id            String                  @id @default(cuid())
-  userId        String
-  title         String
-  description   String                  @db.Text
-  link          String?
-  technologies  String[]                @default([])
-  imagePaths    String[]                @default([])
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
-  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comments      ShowcaseProjectComment[]
-  likes         ShowcaseProjectLike[]
+  id           String                   @id @default(cuid())
+  userId       String
+  title        String
+  description  String                   @db.Text
+  link         String?
+  technologies String[]                 @default([])
+  imagePaths   String[]                 @default([])
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments     ShowcaseProjectComment[]
+  likes        ShowcaseProjectLike[]
 
   @@index([createdAt])
   @@index([userId, createdAt])

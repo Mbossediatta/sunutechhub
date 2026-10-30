@@ -74,7 +74,13 @@ export default function ConnexionPage() {
         email: email.trim(),
         password,
       });
-      router.replace(user.role === "ADMIN" ? "/admin" : "/questions");
+      router.replace(
+        user.role === "ADMIN"
+          ? "/admin"
+          : user.role === "FORMATEUR"
+            ? "/formateur"
+            : "/questions",
+      );
       router.refresh();
     } catch (authError) {
       setError(

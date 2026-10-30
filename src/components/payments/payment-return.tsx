@@ -26,7 +26,7 @@ type LookupState =
   | { kind: "missing-reference" }
   | { kind: "not-found" }
   | { kind: "error"; message: string }
-  | { kind: "payment"; payment: Payment };
+  | { kind: "payment"; payment: Payment; checking: boolean };
 
 function isPayment(value: unknown): value is Payment {
   return (
@@ -50,10 +50,9 @@ function isPayment(value: unknown): value is Payment {
 function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "cancel" }) {
   const searchParams = useSearchParams();
   const reference = searchParams.get("reference")?.trim() ?? "";
-  const expires = searchParams.get("expires")?.trim() ?? "";
-  const token = searchParams.get("token")?.trim() ?? "";
-  const hasReturnParameters = Boolean(reference && expires && token);
+  const hasReturnParameters = Boolean(reference);
   const [state, setState] = useState<LookupState>({ kind: "loading" });
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!hasReturnParameters) return;
@@ -64,7 +63,7 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
     const checkPayment = async () => {
       try {
         for (let attempt = 0; attempt < 16; attempt += 1) {
-          const query = new URLSearchParams({ reference, expires, token });
+          const query = new URLSearchParams({ reference });
           const response = await fetch(`/api/payments/return?${query}`, {
             cache: "no-store",
             signal: controller.signal,
@@ -85,8 +84,9 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
             setState({ kind: "not-found" });
             return;
           }
-          setState({ kind: "payment", payment: result });
-          if (result.status !== "PENDING" || attempt === 15) return;
+          const checking = result.status === "PENDING" && attempt < 15;
+          setState({ kind: "payment", payment: result, checking });
+          if (!checking) return;
           await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(resolve, 3000);
             controller.signal.addEventListener(
@@ -118,7 +118,7 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
       active = false;
       controller.abort();
     };
-  }, [expires, hasReturnParameters, reference, token]);
+  }, [hasReturnParameters, reference, retryCount]);
 
   const displayState: LookupState = hasReturnParameters
     ? state
@@ -153,8 +153,10 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
           <>
             {payment?.status === "PAID" ? (
               <BadgeCheck className="mx-auto h-11 w-11 text-primary" />
-            ) : payment?.status === "PENDING" ? (
+            ) : payment?.status === "PENDING" && displayState.checking ? (
               <LoaderCircle className="mx-auto h-11 w-11 animate-spin text-primary" />
+            ) : payment?.status === "PENDING" ? (
+              <CircleHelp className="mx-auto h-11 w-11 text-accent" />
             ) : payment?.status === "CANCELLED" ? (
               <CircleHelp className="mx-auto h-11 w-11 text-accent" />
             ) : (
@@ -163,9 +165,9 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
             <h1 className="mt-4 font-bricolage text-2xl font-bold">{title}</h1>
             {payment?.status === "PENDING" ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                La confirmation PayTech n’est pas encore arrivée. Cette page
-                vérifie automatiquement le statut. Ne relance pas un deuxième
-                paiement entre-temps.
+                {displayState.checking
+                  ? "La confirmation sécurisée de PayTech n’est pas encore arrivée. Le statut est vérifié automatiquement. Ne relance pas un deuxième paiement."
+                  : "Le paiement est toujours en attente. Ne paie pas une seconde fois. Vérifie ton historique ou contacte l’équipe avec cette référence si la confirmation tarde."}
               </p>
             ) : payment?.status === "PAID" ? (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -205,6 +207,17 @@ function PaymentReturnContent({ returnedFrom }: { returnedFrom: "success" | "can
                   <Link href={`/cours/${encodeURIComponent(payment.course.id)}`}>
                     Retour au cours
                   </Link>
+                </Button>
+              )}
+              {payment?.status === "PENDING" && !displayState.checking && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setState({ kind: "loading" });
+                    setRetryCount((count) => count + 1);
+                  }}
+                >
+                  <RotateCw className="h-4 w-4" /> Vérifier à nouveau
                 </Button>
               )}
               <Button variant="ghost" asChild>

@@ -31,7 +31,7 @@ const labels = {
 };
 
 function getCurrentTimestamp() {
-  return Date.now();
+  return window.performance.timeOrigin + window.performance.now();
 }
 
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {

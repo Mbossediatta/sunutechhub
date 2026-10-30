@@ -8,7 +8,7 @@ interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "MEMBER" | "ADMIN";
+  role: "MEMBER" | "FORMATEUR" | "ADMIN";
 }
 
 interface BackendAuthResult {
@@ -32,7 +32,9 @@ function isBackendAuthResult(value: unknown): value is BackendAuthResult {
     typeof user.id === "string" &&
     typeof user.name === "string" &&
     typeof user.email === "string" &&
-    (user.role === "MEMBER" || user.role === "ADMIN")
+    (user.role === "MEMBER" ||
+      user.role === "FORMATEUR" ||
+      user.role === "ADMIN")
   );
 }
 
@@ -58,7 +60,7 @@ function apiErrorMessage(payload: unknown) {
 export async function authenticate(
   request: Request,
   action: "login" | "register",
-  requiredRole?: AuthUser["role"],
+  requiredRole?: AuthUser["role"] | "ADMIN_OR_FORMATEUR",
 ) {
   let payload: unknown;
   try {
@@ -104,7 +106,12 @@ export async function authenticate(
     );
   }
 
-  if (requiredRole && result.user.role !== requiredRole) {
+  if (
+    requiredRole &&
+    (requiredRole === "ADMIN_OR_FORMATEUR"
+      ? result.user.role === "MEMBER"
+      : result.user.role !== requiredRole)
+  ) {
     return NextResponse.json(
       { message: "Accès réservé aux administrateurs." },
       { status: 403 },

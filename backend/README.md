@@ -116,6 +116,13 @@ dans leur espace cours.
 - Toutes les routes sont protégées par défaut. Les routes publiques sont
   explicitement indiquées et les actions d’administration requièrent le rôle
   `ADMIN` stocké en base.
+- Les administrateurs peuvent inviter un formateur avec `POST
+  /api/admin/instructors`. L’invitation est envoyée par lien magique; les
+  formateurs gèrent uniquement les cours qui leur sont attribués, tandis que
+  la publication et les tarifs restent sous contrôle administrateur.
+- La route `GET /api/payments/:reference/status` renvoie le statut du paiement
+  à son propriétaire connecté. Elle ne confirme jamais un paiement : seule la
+  notification PayTech vérifiée déclenche l’activation correspondante.
 - Le premier administrateur est créé par la commande d’initialisation avec les
   variables `ADMIN_EMAIL` et `ADMIN_PASSWORD`. Aucun mot de passe de démonstration
   n’est intégré au code.

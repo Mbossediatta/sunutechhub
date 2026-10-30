@@ -34,6 +34,14 @@ export class PaymentsController {
     return this.payments.listMine(request.user.id);
   }
 
+  @Get(':reference/status')
+  getStatus(
+    @Param('reference') reference: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.payments.getStatus(reference, request.user.id);
+  }
+
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Get('return')

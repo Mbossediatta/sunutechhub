@@ -41,6 +41,10 @@ export class UpdateCourseDto {
 
   @IsOptional()
   @IsString()
+  instructorId?: string | null;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(80)
   duration?: string;
 

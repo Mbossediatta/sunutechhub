@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 const titles: Record<string, string> = {
   "/admin": "Vue d'ensemble",
   "/admin/statistiques": "Statistiques",
-  "/admin/membres": "Membres",
+  "/admin/membres": "Membres et formateurs",
   "/admin/questions": "Questions",
   "/admin/cours": "Cours",
   "/admin/tarifs": "Tarifs",

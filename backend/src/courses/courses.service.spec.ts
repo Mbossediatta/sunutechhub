@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingService } from '../pricing/pricing.service.js';
@@ -8,6 +8,9 @@ import { SupabaseCourseStorageService } from './supabase-course-storage.service.
 describe('CoursesService course content', () => {
   let courses: CoursesService;
   const prisma = {
+    user: {
+      findUnique: vi.fn(),
+    },
     course: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -30,6 +33,7 @@ describe('CoursesService course content', () => {
     },
     $transaction: vi.fn(),
     lessonProgress: {
+      findMany: vi.fn(),
       upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
@@ -215,7 +219,76 @@ describe('CoursesService course content', () => {
               },
             },
           },
+          instructor: { select: { id: true, name: true, email: true } },
         },
+      }),
+    );
+  });
+
+  it('creates instructor courses as unpublished drafts assigned to their creator', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'trainer-1',
+      name: 'Formateur',
+      role: 'FORMATEUR',
+    });
+    prisma.course.create.mockResolvedValue({
+      id: 'course-1',
+      active: false,
+    });
+
+    await courses.createTrainerCourse('trainer-1', {
+      title: 'Cours de test',
+      description: 'Description du cours de test.',
+    });
+
+    expect(prisma.course.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          instructorId: 'trainer-1',
+          instructorName: 'Formateur',
+          isFree: false,
+          active: false,
+        }),
+      }),
+    );
+  });
+
+  it('does not let a trainer edit content on another instructor’s course', async () => {
+    prisma.course.findFirst.mockResolvedValue(null);
+
+    await expect(
+      courses.updateTrainerContent('trainer-1', 'course-2', 'lesson-1', {
+        title: 'Modification non autorisée',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.courseContent.update).not.toHaveBeenCalled();
+  });
+
+  it('returns progress only for the trainer’s assigned course', async () => {
+    prisma.course.findFirst.mockResolvedValue({
+      id: 'course-1',
+      title: 'Cours de test',
+      registrations: [
+        {
+          level: 'BASE',
+          createdAt: new Date('2026-10-01T00:00:00.000Z'),
+          endsAt: null,
+          user: { id: 'member-1', name: 'Membre' },
+        },
+      ],
+      _count: { contents: 2 },
+    });
+    prisma.lessonProgress.findMany.mockResolvedValue([{ userId: 'member-1' }]);
+
+    await expect(
+      courses.getTrainerProgress('trainer-1', 'course-1'),
+    ).resolves.toMatchObject({
+      totalLessons: 2,
+      students: [{ id: 'member-1', completed: 1 }],
+    });
+    expect(prisma.course.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'course-1', instructorId: 'trainer-1' },
       }),
     );
   });

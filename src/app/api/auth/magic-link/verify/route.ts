@@ -83,12 +83,19 @@ export async function POST(request: Request) {
     !result.user ||
     typeof result.user !== "object" ||
     !("role" in result.user) ||
-    (result.user.role !== "ADMIN" && result.user.role !== "MEMBER")
+    (result.user.role !== "ADMIN" &&
+      result.user.role !== "FORMATEUR" &&
+      result.user.role !== "MEMBER")
   ) {
     return NextResponse.redirect(pageUrl("/connexion?magic=invalid"));
   }
 
-  const destination = result.user.role === "ADMIN" ? "/admin" : "/questions";
+  const destination =
+    result.user.role === "ADMIN"
+      ? "/admin"
+      : result.user.role === "FORMATEUR"
+        ? "/formateur"
+        : "/questions";
   const response = NextResponse.redirect(pageUrl(destination));
   response.cookies.set(AUTH_COOKIE_NAME, result.accessToken, {
     httpOnly: true,

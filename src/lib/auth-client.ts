@@ -3,7 +3,7 @@ interface AuthResponse {
     id: string;
     name: string;
     email: string;
-    role: "MEMBER" | "ADMIN";
+    role: "MEMBER" | "FORMATEUR" | "ADMIN";
   };
   welcomeEmailSent?: boolean;
   welcomeEmailQueued?: boolean;
@@ -38,7 +38,9 @@ function isAuthResponse(value: unknown): value is AuthResponse {
     "email" in user &&
     typeof user.email === "string" &&
     "role" in user &&
-    (user.role === "MEMBER" || user.role === "ADMIN") &&
+    (user.role === "MEMBER" ||
+      user.role === "FORMATEUR" ||
+      user.role === "ADMIN") &&
     (!("welcomeEmailSent" in value) ||
       typeof value.welcomeEmailSent === "boolean") &&
     (!("welcomeEmailQueued" in value) ||

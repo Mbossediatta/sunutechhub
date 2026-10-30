@@ -103,7 +103,9 @@ export async function GET(request: NextRequest) {
     !result.user ||
     typeof result.user !== "object" ||
     !("role" in result.user) ||
-    (result.user.role !== "ADMIN" && result.user.role !== "MEMBER")
+    (result.user.role !== "ADMIN" &&
+      result.user.role !== "FORMATEUR" &&
+      result.user.role !== "MEMBER")
   ) {
     return clearState(
       NextResponse.redirect(pageUrl("/connexion?google=refuse")),
@@ -124,7 +126,9 @@ export async function GET(request: NextRequest) {
     ? `/inscription?welcome=${welcomeEmailSent ? "envoye" : "non-envoye"}`
     : result.user.role === "ADMIN"
       ? "/admin"
-      : "/questions";
+      : result.user.role === "FORMATEUR"
+        ? "/formateur"
+        : "/questions";
   const response = clearState(NextResponse.redirect(pageUrl(destination)));
   response.cookies.set(AUTH_COOKIE_NAME, result.accessToken, {
     httpOnly: true,
