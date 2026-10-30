@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PaginatedProjectGrid } from "@/components/cards/paginated-project-grid";
+import { PUBLIC_CACHE_TAGS } from "@/lib/public-cache";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Projets" };
@@ -21,7 +22,7 @@ async function getProjects(): Promise<Project[]> {
   const baseUrl = process.env.BACKEND_API_URL ?? "http://localhost:4000/api";
   const response = await fetch(
     `${baseUrl.replace(/\/+$/, "")}/showcase-projects`,
-    { cache: "no-store" },
+    { next: { revalidate: 30, tags: [PUBLIC_CACHE_TAGS.projects] } },
   );
   if (!response.ok)
     throw new Error("Impossible de charger les projets de la communauté.");

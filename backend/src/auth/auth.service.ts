@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -17,6 +18,8 @@ import type { UpdateProfileDto } from './dto/update-profile.dto.js';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -45,13 +48,8 @@ export class AuthService {
       select: { id: true, name: true, email: true, role: true },
     });
     const session = await this.issueToken(user);
-    return {
-      ...session,
-      welcomeEmailSent: await this.mailer.sendWelcomeEmail(
-        user.email,
-        user.name,
-      ),
-    };
+    this.queueWelcomeEmail(user.email, user.name);
+    return { ...session, welcomeEmailQueued: true };
   }
 
   async login(input: LoginDto) {
@@ -425,11 +423,17 @@ export class AuthService {
     const session = await this.issueToken(user);
     if (!isNewUser) return session;
 
-    const welcomeEmailSent = await this.mailer.sendWelcomeEmail(
-      user.email,
-      user.name,
-    );
-    return { ...session, welcomeEmailSent };
+    this.queueWelcomeEmail(user.email, user.name);
+    return { ...session, welcomeEmailQueued: true };
+  }
+
+  private queueWelcomeEmail(email: string, name: string) {
+    void this.mailer.sendWelcomeEmail(email, name).catch((error: unknown) => {
+      this.logger.error(
+        'Échec inattendu de l’envoi de l’e-mail de bienvenue.',
+        error instanceof Error ? error.stack : undefined,
+      );
+    });
   }
 
   private googleCallbackUrl() {

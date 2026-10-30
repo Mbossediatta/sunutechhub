@@ -44,6 +44,7 @@ export default function InscriptionPage() {
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [welcomeEmailSent, setWelcomeEmailSent] = useState(false);
+  const [welcomeEmailQueued, setWelcomeEmailQueued] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
@@ -103,6 +104,7 @@ export default function InscriptionPage() {
         newsletterSubscribed,
       });
       setWelcomeEmailSent(result.welcomeEmailSent === true);
+      setWelcomeEmailQueued(result.welcomeEmailQueued === true);
       setStep(3);
     } catch (authError) {
       setSubmitError(
@@ -491,7 +493,9 @@ export default function InscriptionPage() {
                 Ton compte est prêt.{" "}
                 {welcomeEmailSent
                   ? "Un e-mail de bienvenue vient de t’être envoyé."
-                  : "Tu es connecté·e. L’e-mail de bienvenue n’a pas pu être envoyé pour le moment."}{" "}
+                  : welcomeEmailQueued
+                    ? "Ton e-mail de bienvenue est en cours d’envoi."
+                    : "Tu peux commencer à explorer la plateforme dès maintenant."}{" "}
                 Commence par explorer les questions ou suis un cours gratuit.
               </p>
               <div className="flex flex-col gap-3">

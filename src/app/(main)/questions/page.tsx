@@ -30,7 +30,7 @@ export default function QuestionsPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/community/questions", { cache: "no-store" })
+    fetch("/api/community/questions")
       .then(async (response) => {
         const result: unknown = await response.json().catch(() => null);
         if (!response.ok) throw new Error("Impossible de charger les questions.");

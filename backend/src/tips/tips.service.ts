@@ -6,6 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SupabaseCourseStorageService } from '../courses/supabase-course-storage.service.js';
+import type { CreateTipCommentDto } from './dto/create-tip-comment.dto.js';
 import type { CreateTipDto } from './dto/create-tip.dto.js';
 import type { UpdateTipDto } from './dto/update-tip.dto.js';
 
@@ -28,6 +29,7 @@ export class TipsService {
         description: true,
         htmlContent: true,
         createdAt: true,
+        _count: { select: { likes: true, comments: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -43,6 +45,12 @@ export class TipsService {
         htmlContent: true,
         narrationPath: true,
         createdAt: true,
+        comments: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'asc' },
+          take: 200,
+        },
+        _count: { select: { likes: true, comments: true } },
       },
     });
     if (!tip) throw new NotFoundException('Astuce introuvable.');
@@ -58,6 +66,50 @@ export class TipsService {
           : 'mp4'
         : null,
     };
+  }
+
+  async hasLiked(userId: string, slug: string) {
+    const tip = await this.findPublishedTip(slug);
+    const like = await this.prisma.tipLike.findUnique({
+      where: { userId_tipId: { userId, tipId: tip.id } },
+      select: { tipId: true },
+    });
+    return { liked: Boolean(like) };
+  }
+
+  async setLike(userId: string, slug: string, liked: boolean) {
+    const tip = await this.findPublishedTip(slug);
+    if (liked) {
+      await this.prisma.tipLike.createMany({
+        data: [{ userId, tipId: tip.id }],
+        skipDuplicates: true,
+      });
+    } else {
+      await this.prisma.tipLike.deleteMany({
+        where: { userId, tipId: tip.id },
+      });
+    }
+
+    const [count, like] = await Promise.all([
+      this.prisma.tipLike.count({ where: { tipId: tip.id } }),
+      this.prisma.tipLike.findUnique({
+        where: { userId_tipId: { userId, tipId: tip.id } },
+        select: { tipId: true },
+      }),
+    ]);
+    return { liked: Boolean(like), count };
+  }
+
+  async createComment(
+    userId: string,
+    slug: string,
+    input: CreateTipCommentDto,
+  ) {
+    const tip = await this.findPublishedTip(slug);
+    return this.prisma.tipComment.create({
+      data: { tipId: tip.id, userId, body: input.body.trim() },
+      include: { user: { select: { id: true, name: true } } },
+    });
   }
 
   listAdmin() {
@@ -133,6 +185,15 @@ export class TipsService {
         'La narration doit provenir d’un téléversement MP3 ou MP4 validé.',
       );
     }
+  }
+
+  private async findPublishedTip(slug: string) {
+    const tip = await this.prisma.tip.findFirst({
+      where: { slug, published: true },
+      select: { id: true },
+    });
+    if (!tip) throw new NotFoundException('Astuce introuvable.');
+    return tip;
   }
 
   private slugify(value: string) {

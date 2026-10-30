@@ -13,6 +13,15 @@ describe('TipsService', () => {
       update: vi.fn(),
       delete: vi.fn(),
     },
+    tipLike: {
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    tipComment: {
+      create: vi.fn(),
+    },
   };
   const storage = {
     createSignedDownloadUrl: vi.fn(),
@@ -75,6 +84,49 @@ describe('TipsService', () => {
       NotFoundException,
     );
     expect(storage.createSignedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('creates an idempotent like for a published tip', async () => {
+    prisma.tip.findFirst.mockResolvedValue({ id: 'tip-1' });
+    prisma.tipLike.createMany.mockResolvedValue({ count: 1 });
+    prisma.tipLike.count.mockResolvedValue(1);
+    prisma.tipLike.findUnique.mockResolvedValue({ tipId: 'tip-1' });
+
+    await expect(tips.setLike('user-1', 'tip-slug', true)).resolves.toEqual({
+      liked: true,
+      count: 1,
+    });
+    expect(prisma.tipLike.createMany).toHaveBeenCalledWith({
+      data: [{ userId: 'user-1', tipId: 'tip-1' }],
+      skipDuplicates: true,
+    });
+  });
+
+  it('does not allow comments on unpublished tips', async () => {
+    prisma.tip.findFirst.mockResolvedValue(null);
+
+    await expect(
+      tips.createComment('user-1', 'draft-tip', { body: 'Bon conseil' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.tipComment.create).not.toHaveBeenCalled();
+  });
+
+  it('creates a trimmed comment for a published tip', async () => {
+    prisma.tip.findFirst.mockResolvedValue({ id: 'tip-1' });
+    prisma.tipComment.create.mockResolvedValue({
+      id: 'comment-1',
+      body: 'Astuce utile',
+    });
+
+    await tips.createComment('user-1', 'tip-slug', {
+      body: '  Astuce utile  ',
+    });
+
+    expect(prisma.tipComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { tipId: 'tip-1', userId: 'user-1', body: 'Astuce utile' },
+      }),
+    );
   });
 
   it('requires a verified MP3 or MP4 narration path before creating a tip', async () => {

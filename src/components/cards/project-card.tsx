@@ -35,69 +35,69 @@ export function ProjectCard({
   commentCount,
 }: ProjectCardProps) {
   return (
-    <Card className="group flex flex-col overflow-hidden border hover:border-primary/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/8 transition-all duration-200">
-      {/* Thumbnail */}
-      <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-gradient-to-br from-accent/10 via-primary/5 to-background">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={`Capture du projet ${title}`}
-            fill
-            unoptimized
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <Rocket className="h-12 w-12 text-primary/50 transition-transform duration-300 group-hover:scale-110" />
-        )}
-      </div>
+    <Link
+      href={`/projets/${id}`}
+      aria-label={`Voir le projet ${title}`}
+      className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card className="flex h-full flex-col overflow-hidden border transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-xl group-hover:shadow-primary/8">
+        <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-gradient-to-br from-accent/10 via-primary/5 to-background">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={`Capture du projet ${title}`}
+              fill
+              unoptimized
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <Rocket className="h-12 w-12 text-primary/50 transition-transform duration-300 group-hover:scale-110" />
+          )}
+        </div>
 
-      <CardContent className="p-4 flex flex-col gap-3 flex-1">
-        <Link href={`/projets/${id}`}>
-          <h3 className="font-semibold text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
+        <CardContent className="flex flex-1 flex-col gap-3 p-4">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary">
             {title}
           </h3>
-        </Link>
 
-        <p className="text-xs text-muted-foreground line-clamp-2 flex-1 leading-relaxed">
-          {description}
-        </p>
-        <div className="flex flex-wrap gap-1">
-          {technologies.map((t) => (
-            <Badge key={t} variant="outline" className="text-[11px] px-2">
-              {t}
-            </Badge>
-          ))}
-        </div>
+          <p className="flex-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {technologies.map((t) => (
+              <Badge key={t} variant="outline" className="px-2 text-[11px]">
+                {t}
+              </Badge>
+            ))}
+          </div>
 
-        <div className="flex items-center justify-between pt-2 border-t">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-              {getInitials(author.name)}
+          <div className="flex items-center justify-between border-t pt-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                {getInitials(author.name)}
+              </span>
+              <span className="max-w-[110px] truncate text-xs text-muted-foreground">
+                {author.name}
+              </span>
+            </div>
+            <ExternalLink
+              aria-hidden="true"
+              className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-primary"
+            />
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Heart className="h-3.5 w-3.5" />
+              {likeCount}
             </span>
-            <span className="text-xs text-muted-foreground truncate max-w-[110px]">
-              {author.name}
+            <span className="inline-flex items-center gap-1">
+              <MessageCircle className="h-3.5 w-3.5" />
+              {commentCount}
             </span>
           </div>
-          <Link
-            href={`/projets/${id}`}
-            aria-label={`Voir le projet ${title}`}
-            className="text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5" />
-            {likeCount}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <MessageCircle className="h-3.5 w-3.5" />
-            {commentCount}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

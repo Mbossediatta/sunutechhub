@@ -51,7 +51,7 @@ const initialState = <T,>(): ResourceState<T> => ({
 });
 
 async function loadResource<T>(url: string, label: string): Promise<T[]> {
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url);
   const result: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const message =

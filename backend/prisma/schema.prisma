@@ -111,6 +111,8 @@ model User {
   showcaseProjects         ShowcaseProject[]
   showcaseProjectComments  ShowcaseProjectComment[]
   showcaseProjectLikes     ShowcaseProjectLike[]
+  tipComments              TipComment[]
+  tipLikes                 TipLike[]
   reviews                  CourseProject[]          @relation("ProjectReviewer")
   priceChanges             PriceChange[]
   attestations             Attestation[]
@@ -198,8 +200,33 @@ model Tip {
   published     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  comments      TipComment[]
+  likes         TipLike[]
 
   @@index([published, createdAt])
+}
+
+model TipLike {
+  userId    String
+  tipId     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tip       Tip      @relation(fields: [tipId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tipId])
+  @@index([tipId])
+}
+
+model TipComment {
+  id        String   @id @default(cuid())
+  body      String   @db.Text
+  userId    String
+  tipId     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tip       Tip      @relation(fields: [tipId], references: [id], onDelete: Cascade)
+
+  @@index([tipId, createdAt])
 }
 
 model LessonProgress {

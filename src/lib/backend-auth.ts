@@ -15,6 +15,7 @@ interface BackendAuthResult {
   accessToken: string;
   user: AuthUser;
   welcomeEmailSent?: boolean;
+  welcomeEmailQueued?: boolean;
 }
 
 function isBackendAuthResult(value: unknown): value is BackendAuthResult {
@@ -26,6 +27,8 @@ function isBackendAuthResult(value: unknown): value is BackendAuthResult {
     typeof result.accessToken === "string" &&
     (result.welcomeEmailSent === undefined ||
       typeof result.welcomeEmailSent === "boolean") &&
+    (result.welcomeEmailQueued === undefined ||
+      typeof result.welcomeEmailQueued === "boolean") &&
     typeof user.id === "string" &&
     typeof user.name === "string" &&
     typeof user.email === "string" &&
@@ -111,7 +114,10 @@ export async function authenticate(
   const response = NextResponse.json({
     user: result.user,
     ...(action === "register"
-      ? { welcomeEmailSent: result.welcomeEmailSent ?? false }
+      ? {
+          welcomeEmailSent: result.welcomeEmailSent,
+          welcomeEmailQueued: result.welcomeEmailQueued,
+        }
       : {}),
   });
   response.cookies.set(AUTH_COOKIE_NAME, result.accessToken, {

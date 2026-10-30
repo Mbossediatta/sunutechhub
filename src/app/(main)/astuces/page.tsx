@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Lightbulb, LoaderCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  ArrowRight,
+  Heart,
+  Lightbulb,
+  LoaderCircle,
+  MessageCircle,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { sandboxTipHtml } from "@/lib/sandbox-tip-html";
 
@@ -13,6 +18,7 @@ type Tip = {
   description: string;
   htmlContent: string;
   createdAt: string;
+  _count?: { likes: number; comments: number };
 };
 
 export default function AstucesPage() {
@@ -22,7 +28,7 @@ export default function AstucesPage() {
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/tips", { cache: "no-store" })
+    void fetch("/api/tips")
       .then(async (response) => {
         const result: unknown = await response.json().catch(() => null);
         if (!response.ok) {
@@ -92,30 +98,45 @@ export default function AstucesPage() {
               key={tip.slug}
               className="h-full overflow-hidden transition hover:border-primary/40"
             >
-              <div className="overflow-hidden border-b bg-white">
-                <iframe
-                  title={`Aperçu animé : ${tip.title}`}
-                  srcDoc={sandboxTipHtml(tip.htmlContent)}
-                  sandbox="allow-scripts"
-                  referrerPolicy="no-referrer"
-                  tabIndex={-1}
-                  aria-label={`Aperçu animé de l’astuce ${tip.title}`}
-                  className="pointer-events-none aspect-video w-full border-0"
-                />
-              </div>
-              <CardContent className="flex h-full flex-col p-5">
-                <h2 className="font-bricolage text-lg font-bold">
-                  {tip.title}
-                </h2>
-                <p className="mt-2 flex-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {tip.description}
-                </p>
-                <Button asChild className="mt-5 w-fit">
-                  <Link href={`/astuces/${encodeURIComponent(tip.slug)}`}>
-                    Voir l’astuce <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </CardContent>
+              <Link
+                href={`/astuces/${encodeURIComponent(tip.slug)}`}
+                aria-label={`Ouvrir l’astuce ${tip.title}`}
+                className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="overflow-hidden border-b bg-white">
+                  <iframe
+                    title={`Aperçu animé : ${tip.title}`}
+                    srcDoc={sandboxTipHtml(tip.htmlContent)}
+                    sandbox="allow-scripts"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    tabIndex={-1}
+                    aria-label={`Aperçu animé de l’astuce ${tip.title}`}
+                    className="pointer-events-none aspect-video w-full border-0"
+                  />
+                </div>
+                <CardContent className="flex h-full flex-col p-5">
+                  <h2 className="font-bricolage text-lg font-bold group-hover:text-primary">
+                    {tip.title}
+                  </h2>
+                  <p className="mt-2 flex-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {tip.description}
+                  </p>
+                  <span className="mt-5 inline-flex w-fit items-center gap-2 text-sm font-medium text-primary">
+                    Voir l’astuce <ArrowRight className="h-4 w-4" />
+                  </span>
+                  <span className="mt-4 flex items-center gap-4 border-t pt-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Heart className="h-3.5 w-3.5" />
+                      {tip._count?.likes ?? 0}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      {tip._count?.comments ?? 0}
+                    </span>
+                  </span>
+                </CardContent>
+              </Link>
             </Card>
           ))}
         </div>

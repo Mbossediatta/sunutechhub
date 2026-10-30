@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { BookOpen, LoaderCircle, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,7 @@ export default function CoursPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/courses", { cache: "no-store" })
+    fetch("/api/courses")
       .then(async (response) => {
         const result: unknown = await response.json().catch(() => null);
         if (!response.ok) throw new Error("Impossible de charger les cours.");
@@ -91,12 +92,16 @@ export default function CoursPage() {
             {pagination.pageItems.map((course) => (
               <article key={course.id} className="flex flex-col rounded-2xl border bg-card p-5 transition-colors hover:border-primary/40">
                 {course.coverImageUrl && (
-                  <img
-                    src={course.coverImageUrl}
-                    alt=""
-                    loading="lazy"
-                    className="mb-4 aspect-video w-full rounded-xl object-cover"
-                  />
+                  <div className="relative mb-4 aspect-video overflow-hidden rounded-xl">
+                    <Image
+                      src={course.coverImageUrl}
+                      alt=""
+                      fill
+                      unoptimized
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
                 )}
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen className="h-5 w-5" /></span>

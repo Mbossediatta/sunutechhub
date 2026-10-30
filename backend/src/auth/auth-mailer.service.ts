@@ -13,11 +13,14 @@ export class AuthMailerService {
   constructor(private readonly config: ConfigService) {}
 
   isConfigured() {
+    const password =
+      this.config.get<string>('SMTP_PASSWORD') ||
+      this.config.get<string>('SMTP_PASS');
     return Boolean(
       this.config.get<string>('SMTP_HOST') &&
-        this.config.get<string>('SMTP_USER') &&
-        this.smtpPassword() &&
-        this.config.get<string>('SMTP_FROM'),
+      this.config.get<string>('SMTP_USER') &&
+      password &&
+      this.config.get<string>('SMTP_FROM'),
     );
   }
 
@@ -97,6 +100,9 @@ export class AuthMailerService {
       host,
       port: Number(this.config.get<string>('SMTP_PORT', '587')),
       secure: this.config.get<string>('SMTP_SECURE') === 'true',
+      connectionTimeout: 3_000,
+      greetingTimeout: 3_000,
+      socketTimeout: 5_000,
       auth: {
         user: this.config.getOrThrow<string>('SMTP_USER'),
         pass: this.smtpPassword(),

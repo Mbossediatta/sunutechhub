@@ -110,11 +110,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const isNewAccount =
+  const hasWelcomeEmailSentStatus =
     "welcomeEmailSent" in result &&
     typeof result.welcomeEmailSent === "boolean";
+  const welcomeEmailQueued =
+    "welcomeEmailQueued" in result &&
+    typeof result.welcomeEmailQueued === "boolean" &&
+    result.welcomeEmailQueued;
+  const welcomeEmailSent =
+    hasWelcomeEmailSentStatus && result.welcomeEmailSent;
+  const isNewAccount = hasWelcomeEmailSentStatus || welcomeEmailQueued;
   const destination = isNewAccount
-    ? `/inscription?welcome=${result.welcomeEmailSent ? "envoye" : "non-envoye"}`
+    ? `/inscription?welcome=${welcomeEmailSent ? "envoye" : "non-envoye"}`
     : result.user.role === "ADMIN"
       ? "/admin"
       : "/questions";
