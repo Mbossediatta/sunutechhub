@@ -219,7 +219,7 @@ export function ShowcaseProjectDetailView({
           <h1 className="break-words font-bricolage text-3xl font-bold">
             {project.title}
           </h1>
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-muted-foreground">
+          <p className="mt-4 break-words whitespace-pre-wrap leading-7 text-muted-foreground">
             {project.description}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">

@@ -133,7 +133,7 @@ export default function InscriptionPage() {
   ];
 
   return (
-    <div className="min-h-[100svh] flex flex-col lg:flex-row">
+    <div className="flex min-h-[100svh] w-full min-w-0 flex-col overflow-x-clip lg:flex-row">
       {/* ── Panneau gauche — déco ── */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-1/2 min-h-[100svh] relative overflow-hidden bg-panel flex-col">
         <div
@@ -183,7 +183,7 @@ export default function InscriptionPage() {
       </div>
 
       {/* ── Panneau droit — formulaire ── */}
-      <div className="flex-1 flex flex-col items-center justify-start px-4 py-6 sm:justify-center sm:px-8 sm:py-10 lg:py-12 bg-background">
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-start px-4 py-6 sm:justify-center sm:px-8 sm:py-10 lg:py-12 bg-background">
         <div className="w-full max-w-[400px]">
           {/* Logo mobile */}
           <div className="flex lg:hidden justify-center mb-4 sm:mb-6">

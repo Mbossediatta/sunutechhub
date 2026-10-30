@@ -549,7 +549,7 @@ export default function CoursDetailPage() {
                                   }).format(new Date(item.scheduledAt))}`}
                               </p>
                               {item.description && (
-                                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                                <p className="mt-1 break-words whitespace-pre-wrap text-sm text-muted-foreground">
                                   {item.description}
                                 </p>
                               )}

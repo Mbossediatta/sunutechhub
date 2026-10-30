@@ -53,12 +53,17 @@ function AdminHeaderInner() {
 
   return (
     <header className="relative flex h-16 shrink-0 items-center justify-between border-b bg-card px-4 sm:px-6">
-      <h1 className="font-bricolage text-xl font-bold">{title}</h1>
-      <div className="flex items-center gap-2">
+      <h1
+        title={title}
+        className="min-w-0 flex-1 truncate font-bricolage text-base font-bold sm:text-xl"
+      >
+        {title}
+      </h1>
+      <div className="ml-2 flex shrink-0 items-center gap-1 sm:gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="relative rounded-xl"
+          className="relative hidden rounded-xl sm:inline-flex"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
@@ -67,7 +72,7 @@ function AdminHeaderInner() {
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-xl"
+          className="hidden rounded-xl sm:inline-flex"
           aria-label="Rechercher"
         >
           <Search className="h-4 w-4" />

@@ -91,7 +91,7 @@ export default function QuestionsPage() {
           {pagination.pageItems.map((question) => (
             <article key={question.id} className="min-w-0 rounded-2xl border bg-card p-4 transition-colors hover:border-primary/40 sm:p-5">
               <Link href={`/questions/${question.id}`} className="break-words font-semibold leading-snug hover:text-primary">{question.title}</Link>
-              <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
+              <p className="mt-2 line-clamp-2 break-words whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {question.status === "SOLVED" && <Badge><CheckCircle2 className="h-3 w-3" /> Résolue</Badge>}
                 {question.subjects.map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}

@@ -61,7 +61,7 @@ export default function AdminQuestionsPage() {
   return (
     <div className="flex flex-col gap-4">
       {error && <p role="alert" className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">{error}</p>}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           ["Toutes", questions.length],
           ["Ouvertes", questions.filter((question) => question.status === "OPEN").length],
@@ -74,7 +74,7 @@ export default function AdminQuestionsPage() {
         ))}
       </div>
       <div className="overflow-x-auto rounded-2xl border bg-card">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[620px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="p-3">Question</th>

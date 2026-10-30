@@ -637,7 +637,7 @@ export default function AdminTarifsPage() {
             </Button>
           </form>
           <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>
                   <th className="p-3">Code</th>
@@ -706,7 +706,7 @@ export default function AdminTarifsPage() {
             </p>
           </div>
           <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>
                   <th className="p-3">Date</th>

@@ -455,7 +455,7 @@ export default function AdminCoursPage() {
       )}
 
       <div className="overflow-x-auto rounded-2xl border bg-card">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr><th className="p-3">Cours</th><th className="p-3">Niveau / langue</th><th className="p-3">Inscrits</th><th className="p-3">Tarifs</th><th className="p-3">État / actions</th></tr>
           </thead>

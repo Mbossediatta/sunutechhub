@@ -61,11 +61,11 @@ async function AdminDashboardAccess({
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 flex">
+    <div className="flex min-h-screen min-w-0 bg-muted/30">
       <AdminSidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <AdminHeader />
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
           {children}
         </main>
       </div>

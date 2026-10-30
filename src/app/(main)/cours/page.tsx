@@ -98,6 +98,11 @@ export default function CoursPage() {
                       alt=""
                       fill
                       unoptimized
+                      loading={
+                        course.id === pagination.pageItems[0]?.id
+                          ? "eager"
+                          : "lazy"
+                      }
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="object-cover"
                     />

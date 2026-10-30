@@ -201,7 +201,7 @@ function HeaderNav() {
     >
       <div className="mx-auto max-w-6xl px-3 sm:px-6 flex h-16 items-center gap-2 sm:gap-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
+        <Link href="/" className="group flex min-w-0 shrink items-center gap-2.5">
           <Image
             src={branding.logoUrl}
             alt={`${branding.platformName} — Apprendre, partager, construire ensemble`}
@@ -210,7 +210,7 @@ function HeaderNav() {
             unoptimized
             priority
             loading="eager"
-            className="h-8 w-auto rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02] sm:h-10"
+            className="h-8 w-auto max-w-[42vw] rounded-lg bg-white object-contain transition-transform group-hover:scale-[1.02] sm:h-10 sm:max-w-none"
           />
         </Link>
 

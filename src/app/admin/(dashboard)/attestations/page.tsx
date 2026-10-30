@@ -115,7 +115,7 @@ export default function AdminAttestationsPage() {
         vérification indique qu’elles ont été retirées.
       </div>
       <div className="overflow-x-auto rounded-2xl border bg-card">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="p-3">Numéro</th>

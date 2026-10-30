@@ -109,7 +109,7 @@ export default function AdminModerationPage() {
   return (
     <div className="flex flex-col gap-5">
       {error && <p role="alert" className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">{error}</p>}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           ["En attente", pendingCount],
           ["Traités", closedCount],
@@ -121,7 +121,7 @@ export default function AdminModerationPage() {
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Button variant={tab === "PENDING" ? "default" : "secondary"} onClick={() => { setTab("PENDING"); pagination.setPage(1); }}>
           En attente ({pendingCount})
         </Button>

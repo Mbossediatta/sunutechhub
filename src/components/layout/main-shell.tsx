@@ -14,7 +14,7 @@ export function MainShell({ children, footer }: { children: ReactNode; footer: R
     <Suspense fallback={
       <div className="flex min-h-screen flex-col">
         <SiteHeader />
-        <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+        <main className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
         {footer}
       </div>
     }>
@@ -64,7 +64,7 @@ function MainShellContent({ children, footer }: { children: ReactNode; footer: R
   return (
     <div className="flex min-h-screen flex-col">
       {!isStandalone && <SiteHeader />}
-      <main className={!isStandalone && authenticated ? "flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0" : "flex-1"}>
+      <main className={`min-w-0 flex-1 ${!isStandalone && authenticated ? "pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
         {children}
       </main>
       {footer}

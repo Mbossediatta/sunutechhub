@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="flex min-h-screen w-full min-w-0 overflow-x-clip bg-background">
 
       {/* ── Panneau gauche déco ── */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-panel overflow-hidden flex-col items-center justify-center p-16">
@@ -98,7 +99,7 @@ export default function AdminLoginPage() {
       </div>
 
       {/* ── Panneau droit — formulaire ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
 
           {/* Logo */}
@@ -204,9 +205,9 @@ export default function AdminLoginPage() {
 
             {/* Lien retour */}
             <p className="text-xs text-center text-muted-foreground mt-6">
-              <a href="/" className="hover:text-primary transition-colors">
+              <Link href="/" className="hover:text-primary transition-colors">
                 ← Retour au site public
-              </a>
+              </Link>
             </p>
           </div>
 
