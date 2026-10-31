@@ -36,7 +36,7 @@ export default function CoursPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/courses")
+    fetch("/api/courses", { cache: "no-store" })
       .then(async (response) => {
         const result: unknown = await response.json().catch(() => null);
         if (!response.ok) throw new Error("Impossible de charger les cours.");

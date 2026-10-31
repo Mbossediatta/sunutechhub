@@ -77,6 +77,7 @@ async function proxyAdminRequest(request: Request, context: RouteContext) {
     }
     if (
       changedPath.startsWith("community/questions") ||
+      changedPath.startsWith("community/answers") ||
       changedPath.startsWith("questions")
     ) {
       revalidateTag(PUBLIC_CACHE_TAGS.questions, { expire: 0 });

@@ -241,6 +241,11 @@ La mention légale figure sur le PDF et la réponse de vérification :
 - `POST /api/reports` enregistre un signalement de question ou de réponse.
 - `GET /api/admin/community/questions` et
   `GET /api/admin/community/reports` sont réservés aux administrateurs.
+- Les administrateurs peuvent supprimer une question avec
+  `DELETE /api/admin/community/questions/:id` (ses réponses et signalements
+  associés sont supprimés aussi), consulter ses réponses avec
+  `GET /api/admin/community/questions/:id` et supprimer une réponse avec
+  `DELETE /api/admin/community/answers/:answerId`.
 - `POST /api/admin/community/reports/:id/review` traite un signalement et peut
   masquer sa cible.
 - `GET /api/events` affiche les événements actifs à venir. Les membres

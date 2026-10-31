@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -99,6 +100,24 @@ export class CommunityController {
   @Get('admin/community/questions')
   listAdminQuestions() {
     return this.community.listAdminQuestions();
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Get('admin/community/questions/:id')
+  getAdminQuestion(@Param('id') id: string) {
+    return this.community.getAdminQuestion(id);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Delete('admin/community/questions/:id')
+  deleteQuestion(@Param('id') id: string) {
+    return this.community.deleteQuestion(id);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Delete('admin/community/answers/:answerId')
+  deleteAnswer(@Param('answerId') answerId: string) {
+    return this.community.deleteAnswer(answerId);
   }
 
   @Roles(UserRole.ADMIN)

@@ -215,6 +215,37 @@ export class CommunityService {
     });
   }
 
+  async getAdminQuestion(id: string) {
+    const question = await this.prisma.communityQuestion.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true } },
+        answers: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    if (!question) throw new NotFoundException('Question introuvable.');
+    return question;
+  }
+
+  async deleteQuestion(id: string) {
+    const result = await this.prisma.communityQuestion.deleteMany({
+      where: { id },
+    });
+    if (!result.count) throw new NotFoundException('Question introuvable.');
+    return { success: true };
+  }
+
+  async deleteAnswer(id: string) {
+    const result = await this.prisma.communityAnswer.deleteMany({
+      where: { id },
+    });
+    if (!result.count) throw new NotFoundException('Réponse introuvable.');
+    return { success: true };
+  }
+
   listReports() {
     return this.prisma.contentReport.findMany({
       include: {

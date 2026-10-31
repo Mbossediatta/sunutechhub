@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  PUBLIC_CACHE_CONTROL,
-  PUBLIC_CACHE_TAGS,
-} from "@/lib/public-cache";
+import { PUBLIC_CACHE_TAGS } from "@/lib/public-cache";
 
 export async function GET() {
   const baseUrl = process.env.BACKEND_API_URL ?? "http://localhost:4000/api";
@@ -14,9 +11,7 @@ export async function GET() {
     const payload: unknown = await response.json().catch(() => null);
     return NextResponse.json(payload, {
       status: response.status,
-      headers: response.ok
-        ? { "Cache-Control": PUBLIC_CACHE_CONTROL }
-        : undefined,
+      headers: { "Cache-Control": "no-store" },
     });
   } catch {
     return NextResponse.json(

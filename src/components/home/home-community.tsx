@@ -50,8 +50,12 @@ const initialState = <T,>(): ResourceState<T> => ({
   error: "",
 });
 
-async function loadResource<T>(url: string, label: string): Promise<T[]> {
-  const response = await fetch(url);
+async function loadResource<T>(
+  url: string,
+  label: string,
+  cache?: RequestCache,
+): Promise<T[]> {
+  const response = await fetch(url, cache ? { cache } : undefined);
   const result: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const message =
@@ -90,7 +94,7 @@ export function HomeCommunity() {
           });
       });
 
-    loadResource<Course>("/api/courses", "les cours")
+    loadResource<Course>("/api/courses", "les cours", "no-store")
       .then((items) => {
         if (active)
           setCourses({ items: items.slice(0, 3), loading: false, error: "" });

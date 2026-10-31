@@ -1,11 +1,15 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NewsletterService } from '../platform-settings/newsletter.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CommunityService } from './community.service.js';
 
 describe('CommunityService answer interactions', () => {
   const prisma = {
-    communityAnswer: { findFirst: vi.fn() },
+    communityAnswer: {
+      findFirst: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     communityAnswerLike: {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -14,7 +18,10 @@ describe('CommunityService answer interactions', () => {
       findMany: vi.fn(),
     },
     communityAnswerComment: { create: vi.fn() },
-    communityQuestion: { findFirst: vi.fn() },
+    communityQuestion: {
+      findFirst: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   };
   let community: CommunityService;
 
@@ -23,6 +30,7 @@ describe('CommunityService answer interactions', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommunityService,
+        { provide: NewsletterService, useValue: {} },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -79,5 +87,43 @@ describe('CommunityService answer interactions', () => {
       },
       include: { user: { select: { id: true, name: true } } },
     });
+  });
+
+  it('lets an admin delete an answer and its dependent content', async () => {
+    prisma.communityAnswer.deleteMany.mockResolvedValue({ count: 1 });
+
+    await expect(community.deleteAnswer('answer-1')).resolves.toEqual({
+      success: true,
+    });
+    expect(prisma.communityAnswer.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'answer-1' },
+    });
+  });
+
+  it('reports a missing answer when there is nothing to delete', async () => {
+    prisma.communityAnswer.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      community.deleteAnswer('missing-answer'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lets an admin delete a question and its dependent content', async () => {
+    prisma.communityQuestion.deleteMany.mockResolvedValue({ count: 1 });
+
+    await expect(community.deleteQuestion('question-1')).resolves.toEqual({
+      success: true,
+    });
+    expect(prisma.communityQuestion.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'question-1' },
+    });
+  });
+
+  it('reports a missing question when there is nothing to delete', async () => {
+    prisma.communityQuestion.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      community.deleteQuestion('missing-question'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
