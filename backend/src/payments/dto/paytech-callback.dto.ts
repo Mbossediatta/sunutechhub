@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsNumber, IsString, MaxLength } from 'class-validator';
 
 export class PayTechCallbackDto {
@@ -9,6 +10,7 @@ export class PayTechCallbackDto {
   @MaxLength(100)
   ref_command!: string;
 
+  @Type(() => Number)
   @IsNumber()
   item_price!: number;
 
